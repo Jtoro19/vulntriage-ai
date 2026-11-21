@@ -224,11 +224,37 @@ The rule base is checked for coverage: every combination of input terms must fir
 
 ---
 
-## 6. Conclusions (Slide 12): to be completed with the results
-1. Level 1 (n8n)
-2. Level 2 (LangChain)
-3. Rational technique
-4. Team learnings
+## 6. Conclusions (Slide 12)
+
+Results below are read from the files produced by the repository scripts
+(`workflow/metrics/n8n_metrics.json`, `reports/sample_full_lab.json`, `fuzzy/results/metrics.json`).
+
+1. **Level 1 (n8n):** a 24-node workflow (webhook trigger) parses Nmap and Nuclei
+   reports, links services to CVEs through NVD, enriches them with EPSS and CISA KEV, asks Gemini
+   for a summary, an ATT&CK technique and a remediation (Groq as fallback), logs every finding to
+   Postgres and sends a five-field Telegram alert (host IP, PID from the host inventory, service,
+   CVE information, recommendation). Over 24 real executions it reached a
+   100% success rate, 5.97 s on
+   average for reports with findings, and 14/14 runs
+   enriched by the LLM. Free-tier quotas were the main operational risk: spacing the runs and
+   choosing a model with its own daily quota solved it.
+2. **Level 2 (LangChain):** a LangGraph ReAct agent with 7 tools, RAG over OWASP WSTG, CWE and
+   ATT&CK (FAISS, 4582 chunks) and Pydantic output triaged the full lab
+   (11 hosts, 16 findings, 6 in KEV) in
+   227.9 s, with an auditable trace and a PDF report. Copying the
+   scores from tool outputs in code, instead of trusting the LLM, keeps the report verifiable.
+3. **Rational technique (fuzzy logic):** with CISA KEV as ground truth over 510
+   CVEs, the fuzzy engine reached P@10 = 0.80 and
+   R@20 = 0.80, against 0.50 and 0.40
+   for CVSS (0.20 and
+   0.27 under random tie-breaking). The ablation without
+   EPSS equals the CVSS baseline (P@10 = 0.50), so the gain comes from the
+   exploitation probability, which is itself correlated with KEV.
+4. **Team learnings:** deterministic code around the LLM (parsing, scoring, tie-breaks) matters
+   more than the model; evaluation must report ties and ablations to stay honest; ethical
+   scanning needs explicit guards (Nuclei templates that exploit to confirm were excluded after one
+   executed a command in the lab); host-level facts such as PIDs or exact versions need host
+   access, not a network scan; and free-tier APIs need caching, backoff and fallbacks.
 
 ---
 
