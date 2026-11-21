@@ -25,12 +25,25 @@ const runId = body.run_id || `n8n-${Date.now()}`;
 const cveRe = /CVE-\d{4}-\d{4,}/gi;
 const uniq = (a) => [...new Set(a.map((c) => c.toUpperCase()))];
 
-function cpe22to23(c) {
-  if (!c || !c.startsWith('cpe:/')) return null;
-  const p = c.slice(5).split(':');
-  if (p.length < 4 || !p[3]) return null; // a CPE without a version is too broad
-  while (p.length < 11) p.push('*');
-  return 'cpe:2.3:' + p.slice(0, 11).map((x) => x || '*').join(':');
+// Product table for services Nmap versions without a usable CPE (same as vulntriage/parsers.py).
+const PRODUCT_CPE = { 'Werkzeug httpd': 'palletsprojects:werkzeug', 'Apache Tomcat': 'apache:tomcat',
+  'Apache Solr': 'apache:solr', 'Apache httpd': 'apache:http_server', 'Jetty': 'eclipse:jetty',
+  'Elasticsearch REST API': 'elastic:elasticsearch' };
+// Wildcards, ranges and snapshots would match far too many CVEs.
+const concrete = (v) => !!v && /^[0-9][0-9A-Za-z._-]*$/.test(v) &&
+  !v.toLowerCase().split('.').includes('x') && !v.toLowerCase().includes('snapshot');
+function serviceCpe23(product, version, cpes) {
+  if (PRODUCT_CPE[product] && concrete(version)) {
+    return `cpe:2.3:a:${PRODUCT_CPE[product]}:${version}:*:*:*:*:*:*:*`;
+  }
+  for (const c of cpes) {
+    if (!c.startsWith('cpe:/')) continue;
+    const p = c.slice(5).split(':');
+    if (p.length < 4 || p[0] !== 'a' || !concrete(p[3])) continue;
+    while (p.length < 11) p.push('*');
+    return 'cpe:2.3:' + p.slice(0, 11).map((x) => x || '*').join(':');
+  }
+  return null;
 }
 
 const findings = [];
@@ -47,7 +60,7 @@ if (report.trim().startsWith('<')) {
       findings.push({
         run_id: runId, asset, host: addr, port: Number(m[2]), service: attr('name'),
         product: attr('product'), version: attr('version'),
-        cpe23: cpes.map(cpe22to23).find(Boolean) || null,
+        cpe23: serviceCpe23(attr('product'), attr('version'), cpes),
         cves: uniq(inner.match(cveRe) || []), source: 'nmap',
       });
     }
@@ -66,6 +79,17 @@ if (report.trim().startsWith('<')) {
       cves: uniq([...ids, ...((it['template-id'] || '').match(cveRe) || [])]), source: 'nuclei',
     });
   }
+}
+// Host inventory (lab): the caller sends {"lab-host-N:port": {ip, pid, command, ...}}
+// built on the Docker host, because a network scan cannot see process ids.
+const inventory = body.inventory || {};
+for (const f of findings) {
+  const m = String(f.host).match(/(?:lab-host-|172\.30\.0\.)(\d+)$/);
+  const inv = m && f.port ? inventory[`lab-host-${m[1]}:${f.port}`] : null;
+  f.host_ip = inv ? inv.ip : f.host;
+  f.pid = inv ? inv.pid : null;
+  f.pid_source = inv ? (inv.source || 'host inventory (lab)') : null;
+  f.process = inv ? (inv.command || '').slice(0, 80) : null;
 }
 // Keep only findings that can be linked to CVEs (direct ids or a versioned CPE).
 const usable = findings.filter((f) => f.cves.length > 0 || f.cpe23);
@@ -100,6 +124,7 @@ for (const item of $input.all()) {
     if (seen.has(key) || out.length >= MAX_CVES) continue;
     seen.add(key);
     out.push({ json: { run_id: f.run_id, asset: f.asset, host: f.host, port: f.port,
+      host_ip: f.host_ip, pid: f.pid, pid_source: f.pid_source, process: f.process,
       service: f.service, product: f.product, version: f.version, cve_id: cve } });
   }
 }
@@ -113,6 +138,8 @@ return out;
 
 COMBINE_JS = r"""
 // Join NVD, EPSS and KEV data for each CVE (items keep the same order).
+// Curated CWE to ATT&CK bridge (same table as vulntriage/intel.py), used as a hint for the LLM.
+const CWE_TO_ATTACK = { 'CWE-78': 'T1059', 'CWE-77': 'T1059', 'CWE-94': 'T1059', 'CWE-95': 'T1059', 'CWE-917': 'T1059', 'CWE-1336': 'T1059', 'CWE-502': 'T1190', 'CWE-89': 'T1190', 'CWE-22': 'T1083', 'CWE-23': 'T1083', 'CWE-434': 'T1505.003', 'CWE-287': 'T1078', 'CWE-306': 'T1190', 'CWE-798': 'T1078.001', 'CWE-521': 'T1110', 'CWE-307': 'T1110', 'CWE-79': 'T1189', 'CWE-352': 'T1185', 'CWE-918': 'T1090', 'CWE-611': 'T1190', 'CWE-200': 'T1005', 'CWE-269': 'T1068', 'CWE-276': 'T1222', 'CWE-119': 'T1203', 'CWE-787': 'T1203', 'CWE-416': 'T1203', 'CWE-120': 'T1203', 'CWE-20': 'T1190', 'CWE-400': 'T1499', 'CWE-770': 'T1499', 'CWE-863': 'T1068', 'CWE-284': 'T1190' };
 const kevSet = new Set(($input.first().json.vulnerabilities || []).map((v) => v.cveID));
 const base = $('One item per CVE').all();
 const nvd = $('NVD CVE details').all();
@@ -130,7 +157,8 @@ return base.map((b, i) => {
   const e = ((epss[i] && epss[i].json.data) || [])[0];
   const epssScore = e ? Number(e.epss) : 0;
   const inKev = kevSet.has(f.cve_id);
-  return { json: { ...f, cvss_score: cvss, epss: epssScore, in_kev: inKev, cwes,
+  const hint = cwes.map((c) => CWE_TO_ATTACK[c]).find(Boolean) || 'T1190';
+  return { json: { ...f, cvss_score: cvss, epss: epssScore, in_kev: inKev, cwes, attack_hint: hint,
     description: desc.slice(0, 400), critical: inKev || (cvss !== null && cvss >= 9) } };
 });
 """
@@ -140,12 +168,15 @@ PROMPT_JS = r"""
 const findings = $input.all().map((i) => i.json);
 const lines = findings.map((f, n) => `${n + 1}. ${f.cve_id} | ${f.product || f.service} ` +
   `${f.version || ''} | CVSS ${f.cvss_score} | EPSS ${f.epss.toFixed(4)} | KEV ${f.in_kev} | ` +
-  `${f.cwes.join(',')} | ${f.description}`);
+  `${f.cwes.join(',')} | ATT&CK hint ${f.attack_hint} | ${f.description}`);
 const system = 'You are a penetration testing analyst working ONLY on authorized lab assets. ' +
   'For each finding write a one-sentence risk summary and map it to the single most relevant ' +
-  'MITRE ATT&CK Enterprise technique. Never write exploit code. Answer with JSON only: ' +
+  'MITRE ATT&CK Enterprise technique (each line has a hint from a CWE to ATT&CK table: keep ' +
+  'it unless the description clearly points to another technique), and give one short remediation (max 180 characters) ' +
+  'that cites the relevant OWASP guidance (for example OWASP WSTG or Top 10) and the CWE id. ' +
+  'Never write exploit code. Answer with JSON only: ' +
   '{"executive_summary": str, "findings": [{"cve_id": str, "summary": str, ' +
-  '"attack_technique_id": str, "attack_technique_name": str}]}';
+  '"attack_technique_id": str, "attack_technique_name": str, "remediation": str}]}';
 return [{ json: { system, user: 'Findings:\n' + lines.join('\n'), findings } }];
 """
 
@@ -180,22 +211,43 @@ return findings.map((f) => {
     attack_technique: l.attack_technique_id
       ? `${l.attack_technique_id} ${l.attack_technique_name || ''}`.trim() : null,
     critical: f.critical, priority: null, summary: l.summary || null, llm_provider: provider,
+    host_ip: f.host_ip, pid: f.pid, pid_source: f.pid_source, process: f.process,
+    remediation: l.remediation || null,
     executive_summary: parsed.executive_summary || null,
   } };
 });
 """
 
 AGGREGATE_JS = r"""
-// Summarize the run and prepare the Telegram alert text for critical findings.
+// Summarize the run and build the Telegram alert. Each critical finding lists, in order:
+// 1) host IP, 2) PID (host inventory), 3) service and version, 4) CVE info, 5) recommendation.
 const rows = $('Parse LLM output').all().map((i) => i.json);
 const body = $('Receive scan report').first().json.body || {};
 const critical = rows.filter((r) => r.critical);
-const lines = critical.map((r) => `- ${r.cve_id} on ${r.host}:${r.port} (${r.product || r.service})` +
-  ` CVSS ${r.cvss_score}, EPSS ${Number(r.epss).toFixed(3)}${r.in_kev ? ', in CISA KEV' : ''}` +
-  `${r.attack_technique ? ', ' + r.attack_technique : ''}`);
-const message = `VulnTriage-AI alert (${rows[0].asset}, run ${rows[0].run_id})\n` +
-  `${critical.length} critical of ${rows.length} findings:\n${lines.join('\n')}\n\n` +
-  `${rows[0].executive_summary || ''}`.slice(0, 3900);
+const fmt = (v, d) => (v === null || v === undefined ? 'n/a' : Number(v).toFixed(d));
+const blocks = critical.map((r, i) => [
+  `[${i + 1}/${critical.length}] ${r.cve_id}`,
+  `1) Host: ${r.host_ip || r.host}${r.port ? ':' + r.port : ''}`,
+  `2) PID: ${r.pid ? r.pid + ' (' + (r.pid_source || 'host inventory (lab)') + ')' : 'not found'}`,
+  `3) Service: ${[r.product || r.service, r.version].filter(Boolean).join(' ') || 'unknown'}`,
+  `4) CVE: ${r.cve_id}`,
+  `   CVSS: ${fmt(r.cvss_score, 1)} | EPSS: ${fmt(r.epss, 3)}`,
+  `   In KEV: ${r.in_kev ? 'yes' : 'no'}`,
+  `   CWE: ${r.cwes || 'n/a'}`,
+  `   ATT&CK: ${r.attack_technique || 'n/a'}`,
+  `   Priority: n/a in n8n (fuzzy engine runs in the LangChain pipeline)`,
+  `5) Fix: ${r.remediation || 'Apply the vendor patch; see OWASP WSTG and the CWE entry.'}`,
+].join('\n'));
+const header = `VulnTriage-AI alert (n8n)\nAsset: ${rows[0].asset}\nRun: ${rows[0].run_id}\n` +
+  `Critical findings: ${critical.length} of ${rows.length}`;
+let message = header;
+let shown = 0;
+for (const b of blocks) {
+  if ((message + '\n\n' + b).length > 3800) break;
+  message += '\n\n' + b;
+  shown += 1;
+}
+if (shown < blocks.length) message += `\n\n(+${blocks.length - shown} more critical findings in the run output)`;
 return [{ json: {
   run_id: rows[0].run_id, asset: rows[0].asset, findings: rows.length,
   critical_count: critical.length, notify: body.notify !== false,

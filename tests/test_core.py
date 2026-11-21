@@ -103,3 +103,43 @@ def test_exported_workflow_has_no_secrets():
     assert "$env.GOOGLE_API_KEY" in text and "$env.TELEGRAM_BOT_TOKEN" in text
     for pattern in ("AIza", "gsk_", "bot1", "bot2", "bot5", "bot6", "bot7", "bot8"):
         assert pattern not in text
+
+
+def test_inventory_parsers_and_lookup():
+    from vulntriage.inventory import lookup, parse_listening, parse_socket_owners
+
+    net = ("  sl  local_address rem_address   st\n"
+           "   0: 00000000:0050 00000000:0000 0A 0 0 0 0 0 1174993 1\n"
+           "   1: 0B00007F:9B6B 00000000:0000 0A 0 0 0 0 0 1177118 1\n"
+           "   2: 0C001EAC:0050 0A001EAC:D2C4 01 0 0 0 0 0 1188000 1\n")
+    assert parse_listening(net) == {80: "1174993"}  # loopback and established skipped
+    assert parse_socket_owners("7 socket:[1174993]\n1 socket:[1174993]\n") == {"1174993": 1}
+    inv = {"lab-host-12:80": {"ip": "172.30.0.12", "pid": 4242}}
+    assert lookup(inv, "lab-host-12", 80)["pid"] == 4242
+    assert lookup(inv, "172.30.0.12", "80")["ip"] == "172.30.0.12"
+    assert lookup(inv, "lab-host-13", 80) is None
+
+
+def test_alert_lists_the_five_fields_in_order():
+    from vulntriage.alerts import format_alert
+
+    finding = {"host_ip": "172.30.0.12", "port": 80, "pid": 4242,
+               "pid_source": "host inventory (lab)", "service": "Apache httpd",
+               "version": "2.4.49", "cve_id": "CVE-2021-41773", "cvss": 9.8, "epss": 0.9999,
+               "in_kev": True, "cwes": ["CWE-22"], "attack": "T1190", "priority": 88.3,
+               "priority_label": "urgent", "remediation": "Upgrade to 2.4.51 (CWE-22, OWASP WSTG)"}
+    text = format_alert([finding], "lab", "run-1", "test")[0]
+    labels = ["1) Host: 172.30.0.12:80", "2) PID: 4242 (host inventory (lab))",
+              "3) Service: Apache httpd 2.4.49", "4) CVE: CVE-2021-41773", "In KEV: yes",
+              "Priority: 88.3/100 (urgent)", "5) Fix: Upgrade"]
+    positions = [text.index(label) for label in labels]
+    assert positions == sorted(positions)
+
+
+def test_service_cpe_prefers_product_table_and_skips_ranges():
+    from vulntriage.parsers import service_cpe23
+
+    assert service_cpe23("Werkzeug httpd", "2.2.2", ["cpe:/a:python:python:3.11.18"]) == (
+        "cpe:2.3:a:palletsprojects:werkzeug:2.2.2:*:*:*:*:*:*:*")
+    assert service_cpe23("Samba smbd", "3.X - 4.X", ["cpe:/a:samba:samba"]) is None
+    assert service_cpe23("Jetty", "9.2.z-SNAPSHOT", []) is None

@@ -20,7 +20,7 @@ echo "Scanning ${#IPS[@]} lab hosts: ${IPS[*]}"
 # 1. Nmap service and version detection, one report per host.
 for ip in "${IPS[@]}"; do
   name="nmap_host$(echo "$ip" | cut -d. -f4)"
-  nmap -sV -Pn --version-light -p 1-10000 -oX "$RAW/$name.xml" "$ip" > /dev/null
+  nmap -sV -Pn -p 1-10000 -oX "$RAW/$name.xml" "$ip" > /dev/null
   uv run python scripts/anonymize_scan.py "$RAW/$name.xml" "$OUT/$name.xml"
 done
 
@@ -45,4 +45,6 @@ docker run --rm --network vulntriage-lab_lab \
   -etags dos,intrusive,fuzz -disable-update-check -silent -jsonl -o /scan/nuclei.jsonl -rate-limit 50 || true
 [[ -f "$RAW/nuclei.jsonl" ]] || : > "$RAW/nuclei.jsonl"
 uv run python scripts/anonymize_scan.py "$RAW/nuclei.jsonl" "$OUT/nuclei_lab.jsonl"
-echo "Reports written to $OUT"
+# 3. Host inventory (lab): container, process and PID behind every listening port.
+uv run python -m vulntriage.inventory > /dev/null
+echo "Reports written to $OUT and data/inventory/lab_inventory.json"

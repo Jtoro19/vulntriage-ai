@@ -22,6 +22,8 @@ from pathlib import Path
 
 import requests
 
+from vulntriage.inventory import load_inventory
+
 ROOT = Path(__file__).resolve().parent.parent
 SCANS = ROOT / "data" / "lab_scans"
 OUT = ROOT / "workflow" / "metrics"
@@ -32,6 +34,8 @@ ASSETS = {
     "nmap_host12.xml": "lab-httpd", "nmap_host13.xml": "lab-tomcat",
     "nmap_host14.xml": "lab-drupal", "nmap_host15.xml": "lab-samba",
     "nmap_host16.xml": "lab-jenkins", "nmap_host17.xml": "lab-elasticsearch",
+    "nmap_host18.xml": "lab-spring-java", "nmap_host19.xml": "lab-solr-java",
+    "nmap_host20.xml": "lab-flask-python",
     "nuclei_lab.jsonl": "lab-all-web",
 }
 
@@ -57,11 +61,13 @@ def main() -> None:
     workflow = json.loads((ROOT / "workflow" / "vulntriage_workflow.json").read_text())
     trigger = next(n for n in workflow["nodes"] if n["type"].endswith(".webhook"))
 
+    inventory = load_inventory()  # host inventory (lab): IP and PID per lab-host-N:port
     start_id = int((psql("select coalesce(max(id), 0) from execution_entity") or [["0"]])[0][0])
     rows = []
     for i in range(args.runs):
         report = reports[i % len(reports)]
         body = {"report": report.read_text(), "asset": ASSETS[report.name],
+                "inventory": inventory,
                 "run_id": f"metrics-{i + 1:02d}", "notify": (i % args.notify_every == 0)}
         t0 = time.perf_counter()
         try:

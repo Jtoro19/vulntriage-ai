@@ -37,3 +37,13 @@ services:
   elasticsearch:
     image: vulhub/elasticsearch:1.4.2    # CVE-2015-1427
     networks: { lab: { ipv4_address: 172.30.0.17 } }
+  spring:
+    image: vulhub/spring-webmvc:5.3.17   # Java: CVE-2022-22965 (Spring4Shell), Tomcat 9
+    networks: { lab: { ipv4_address: 172.30.0.18 } }
+  solr:
+    image: vulhub/solr:8.11.0            # Java: CVE-2021-44228 (Log4Shell, log4j 2.14.1)
+    networks: { lab: { ipv4_address: 172.30.0.19 } }
+  flask:
+    build: ./vuln-flask
+    image: vulntriage/vuln-flask:2.2.2   # Python: Werkzeug 2.2.2, Jinja2 3.1.2
+    networks: { lab: { ipv4_address: 172.30.0.20 } }
