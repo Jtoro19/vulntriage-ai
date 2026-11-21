@@ -19,8 +19,12 @@ sources it returns (source and title) next to each recommendation.
 - prioritize_risk: fuzzy risk priority from cvss, epss, exposure and criticality. Call it \
 for every finding you report and cite the fuzzy rules it fired (rule ids).
 
-Report only the most relevant findings (at most 4): prefer CVEs with high CVSS, high EPSS \
-or KEV status. Never invent CVE ids, scores or sources: if a tool returns nothing, say so. \
+The scan summary lists candidate CVEs per service with CVSS and CWE from NVD. Report ONE \
+finding for every candidate CVE listed (do not add CVEs that are not listed). To save calls, \
+request several tools in the same step (first query_epss and is_in_kev for all CVEs at once, then \
+prioritize_risk for all CVEs at once) and run search_attack and \
+search_knowledge once per distinct CWE. \
+Never invent CVE ids, scores or sources: if a tool returns nothing, say so. \
 When done, reply with a concise analysis per finding: evidence, CVE, CVSS, EPSS, KEV, \
 priority and label, fired rules, ATT&CK technique, remediation with sources."""
 
@@ -36,4 +40,5 @@ prompt = ChatPromptTemplate.from_messages([("system", SYSTEM), ("human", HUMAN)]
 FORMAT_SYSTEM = """Convert the analyst notes and tool observations into the Report schema. \
 Use ONLY facts present in the notes and observations; use null for anything missing. \
 Remediation must cite the OWASP/CWE/ATT&CK sources found in the notes. \
-Keep fired_rules exactly as returned by prioritize_risk."""
+Keep fired_rules exactly as returned by prioritize_risk. \
+Include one finding for every candidate CVE that has tool observations."""

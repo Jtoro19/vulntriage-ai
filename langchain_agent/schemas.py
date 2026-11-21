@@ -12,6 +12,15 @@ class FiredRule(BaseModel):
 
 
 class Finding(BaseModel):
+    # host_ip, port, pid, pid_source, service, version and cwes are filled by the pipeline from
+    # the scan, the host inventory and NVD (never by the LLM); leave them null.
+    host_ip: str | None = None
+    port: int | None = None
+    pid: int | None = None
+    pid_source: str | None = None
+    service: str | None = None
+    version: str | None = None
+    cwes: list[str] = Field(default_factory=list)
     title: str = Field(description="Short finding title, e.g. 'Apache httpd 2.4.49 path traversal'")
     evidence: str = Field(description="Scan evidence: host, port, service, version")
     cve: str | None = Field(default=None, description="Most relevant CVE id or null")

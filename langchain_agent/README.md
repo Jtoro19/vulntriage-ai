@@ -45,6 +45,49 @@ Outputs: `reports/<run_id>.md|json` and `langchain_agent/traces/<run_id>.md|json
 findings into Postgres (`pipeline='langchain'`) but needs `psycopg`, which is not a project dependency, and
 was not exercised. Tests: `uv run pytest tests/test_agent.py -q` (offline).
 
+## Multi-host runs, alerts, PDF and host inventory
+
+```bash
+uv run python -m langchain_agent.run \
+    --scan data/lab_scans/nmap_host12.xml --scan data/lab_scans/nmap_host13.xml \
+    --asset "lab servers" --exposure 8 --criticality 7 --notify
+uv run python -m langchain_agent.pdf_report reports/<run_id>.json   # rebuild the PDF
+```
+
+- `--scan` can be repeated. Candidate CVEs are chosen in code: top 3 per service by CVSS (same rule as the
+  n8n workflow), capped at 12 per run (round-robin by rank, so every service keeps its worst CVE first).
+  One ReAct run is made per host. Tool calls are requested in parallel to keep LLM calls low. Any candidate
+  the agent skipped gets EPSS, KEV and fuzzy priority from the same tools run in code; those steps are marked
+  `(gap fill)` in the trace.
+- Host IP, port, PID, service, version and CWEs are filled deterministically from the scan, NVD and the
+  host inventory (`vulntriage/inventory.py`), never by the LLM. Findings whose CVE no tool returned are
+  dropped. Remediation and references always cite CWE (from NVD) and OWASP WSTG (from `search_knowledge`).
+- Host inventory note: a network scan cannot see process ids. The PID comes from "host inventory (lab)",
+  built on the Docker host. A real engagement needs host access (authenticated scan or endpoint agent).
+- `--notify` sends a Telegram alert (`vulntriage.alerts.format_alert`, pipeline "LangChain agent") for
+  critical findings: in KEV, CVSS >= 9, or fuzzy label urgent/high. Alert format per finding:
+
+```
+[1/9] CVE-2021-41773
+1) Host: 172.30.0.12:80
+2) PID: 184072 (host inventory (lab))
+3) Service: Apache httpd 2.4.49
+4) CVE: CVE-2021-41773
+   CVSS: 9.8 | EPSS: 1.000
+   In KEV: yes
+   CWE: CWE-22
+   ATT&CK: T1083 - File and Directory Discovery
+   Priority: 88.3/100 (urgent)
+5) Fix: Update Apache HTTP Server to version 2.4.51 or later, where path normalization flaws are properly resolved. Ensure configuration options such as Require all denied are strictly enforced for directories outside the web root. Sources: MITRE CWE - CWE-22 Improper Limitation of a Pathname to a Restricted Directory
+   Refs: https://cwe.mitre.org/data/definitions/22.html, https://attack.mitre.org/techniques/T1083/, CWE-22: https://cwe.mitre.org/data/definitions/22.html
+```
+
+  (first block of the real alert sent by the committed sample run `sample_multihost_gemini`.)
+- `reports/<run_id>.pdf` (ReportLab + matplotlib): cover, executive summary, scope and methodology, findings
+  table (host IP:port, PID, service, CVE info, recommendation), fuzzy ranking, four charts (severity by
+  CVSS band, CVSS vs EPSS by KEV, priority ranking, findings per host), recommendations, and a sources
+  appendix. The JSON in `reports/` carries a `meta` block (run id, models, latency) used by the PDF.
+
 ## Committed examples (which model produced each)
 
 | Run id | Provider and model | LLM calls | Tokens in/out | Latency (s) | Findings |

@@ -1,0 +1,536 @@
+{
+  "asset": "VulnTriage-AI isolated lab",
+  "executive_summary": "[lab-host-12] Triage and prioritization analysis for identified vulnerabilities on lab-host-12:80/tcp running Apache httpd 2.4.49. [lab-host-13] Vulnerability triage and prioritization report for VulnTriage-AI isolated lab identifying three findings related to Apache Tomcat, including critical CORS and AJP vulnerabilities as well as a medium severity HTTP parsing vulnerability. [lab-host-17] Triage and prioritization analysis for authorized lab assets including Elasticsearch REST API vulnerabilities. [lab-host-20] Triage and prioritization analysis for identified vulnerabilities on asset lab-host-20:5000/tcp running Werkzeug httpd v2.2.2. [lab-host-16] Triage and prioritization analysis for authorized lab assets identifying vulnerabilities in Jenkins. [lab-host-18] A medium-severity vulnerability (CVE-2023-45648) was identified in Apache Tomcat running on lab-host-18:8080. The flaw is an improper input validation issue (CWE-20) that could allow an attacker to exploit the public-facing application. The EPSS score indicates a moderate likelihood of exploitation, and the risk prioritization rules have assigned a medium priority. Immediate patching or upgrade of Tomcat is recommended.",
+  "findings": [
+    {
+      "host_ip": "172.30.0.12",
+      "port": 80,
+      "pid": 184072,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.49",
+      "cwes": [
+        "CWE-22"
+      ],
+      "title": "Apache HTTP Server Path Traversal and Remote Code Execution",
+      "evidence": "lab-host-12:80/tcp running Apache httpd 2.4.49.",
+      "cve": "CVE-2021-41773",
+      "cvss": 9.8,
+      "epss": 0.99992,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1083 - File and Directory Discovery",
+      "remediation": "Update Apache HTTP Server to version 2.4.51 or later, where path normalization flaws are properly resolved. Ensure configuration options such as Require all denied are strictly enforced for directories outside the web root. Sources: MITRE CWE - CWE-22 Improper Limitation of a Pathname to a Restricted Directory",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/22.html",
+        "https://attack.mitre.org/techniques/T1083/",
+        "CWE-22: https://cwe.mitre.org/data/definitions/22.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.12",
+      "port": 80,
+      "pid": 184072,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.49",
+      "cwes": [
+        "CWE-22"
+      ],
+      "title": "Apache HTTP Server Insufficient Fix Path Traversal / RCE",
+      "evidence": "lab-host-12:80/tcp running Apache httpd 2.4.49 (vulnerable to the variant bypass CVE-2021-42013).",
+      "cve": "CVE-2021-42013",
+      "cvss": 9.8,
+      "epss": 0.99964,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1083 - File and Directory Discovery",
+      "remediation": "Upgrade Apache HTTP Server immediately to version 2.4.51 or later to address the incomplete patch for CVE-2021-41773. Review server configurations and access controls to restrict path traversal vectors and prevent unauthorized file execution. Sources: MITRE CWE - CWE-22 Improper Limitation of a Pathname to a Restricted Directory",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/22.html",
+        "https://attack.mitre.org/techniques/T1083/",
+        "CWE-22: https://cwe.mitre.org/data/definitions/22.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.13",
+      "port": 8080,
+      "pid": 183583,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache Tomcat",
+      "version": "8.5.19",
+      "cwes": [],
+      "title": "Apache JServ Protocol (AJP) Information Disclosure / Request Smuggling (Ghostcat)",
+      "evidence": "Host: lab-host-13, port: 8080, service: Apache Tomcat, version: 8.5.19",
+      "cve": "CVE-2020-1938",
+      "cvss": 9.8,
+      "epss": 0.9927,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1190: Exploit Public-Facing Application",
+      "remediation": "Disable the AJP connector if it is not required by your architecture. If AJP is required, upgrade Apache Tomcat to a patched version, restrict access to trusted internal proxies, and explicitly configure the requiredSecret attribute on the AJP connector. Sources: MITRE CWE (CWE-20 Improper Input Validation).",
+      "references": [
+        "https://attack.mitre.org/techniques/T1190",
+        "https://cwe.mitre.org/data/definitions/20.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.17",
+      "port": 9200,
+      "pid": 190429,
+      "pid_source": "host inventory (lab)",
+      "service": "Elasticsearch REST API",
+      "version": "1.4.2",
+      "cwes": [],
+      "title": "Elasticsearch Groovy scripting engine sandbox bypass",
+      "evidence": "Elasticsearch REST API running version 1.4.2 on port 9200/tcp.",
+      "cve": "CVE-2015-1427",
+      "cvss": 9.8,
+      "epss": 0.99906,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1565 (Data Manipulation)",
+      "remediation": "Upgrade Elasticsearch to version 1.3.8, 1.4.3, or later where the Groovy sandbox is properly secured, or disable dynamic scripting (script.groovy.inline: off and script.engine.groovy.inline.sandbox: false) if scripting is not required. (Source: MITRE CWE)",
+      "references": [
+        "https://attack.mitre.org/techniques/T1565"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.13",
+      "port": 8080,
+      "pid": 183583,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache Tomcat",
+      "version": "8.5.19",
+      "cwes": [
+        "CWE-1188"
+      ],
+      "title": "Apache Tomcat CORS Filter Default Settings",
+      "evidence": "Host: lab-host-13, port: 8080, service: Apache Tomcat, version: 8.5.19",
+      "cve": "CVE-2018-8014",
+      "cvss": 9.8,
+      "epss": 0.20942,
+      "in_kev": false,
+      "priority": 78.81,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R9",
+          "text": "IF cvss is critical AND epss is medium THEN priority is high",
+          "activation": 0.5471
+        }
+      ],
+      "attack_technique": "T1190: Exploit Public-Facing Application",
+      "remediation": "Disable or change default settings when they can be used to abuse the system. Explicitly configure the CORS filter origins rather than relying on insecure defaults that permit credentials across all origins. Sources: MITRE CWE (CWE-1188 Initialization of a Resource with an Insecure Default).",
+      "references": [
+        "https://attack.mitre.org/techniques/T1190",
+        "https://cwe.mitre.org/data/definitions/1188.html",
+        "CWE-1188: https://cwe.mitre.org/data/definitions/1188.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.16",
+      "port": 8080,
+      "pid": 200426,
+      "pid_source": "host inventory (lab)",
+      "service": "http",
+      "version": null,
+      "cwes": [
+        "CWE-79"
+      ],
+      "title": "Jenkins CVE-2019-10405 Cookie Information Disclosure and XSS",
+      "evidence": "lab-host-16:8080/tcp running Jenkins",
+      "cve": "CVE-2019-10405",
+      "cvss": 5.4,
+      "epss": 0.6529,
+      "in_kev": false,
+      "priority": 73.48,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R14",
+          "text": "IF cvss is medium AND epss is high THEN priority is high",
+          "activation": 0.8
+        },
+        {
+          "id": "R3",
+          "text": "IF criticality is high AND cvss is medium AND exposure is internet THEN priority is high",
+          "activation": 0.5
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1189 (Drive-by Compromise)",
+      "remediation": "Upgrade Jenkins to a patched version (2.197 / LTS 2.176.4 or later). Ensure proper input sanitization and output encoding for all HTTP headers rendered in web interfaces. Sources: OWASP WSTG - WSTG-INJT-01 Reflected Cross Site Scripting.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1189",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/01-Reflected_Cross_Site_Scripting",
+        "CWE-79: https://cwe.mitre.org/data/definitions/79.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.17",
+      "port": 9200,
+      "pid": 190429,
+      "pid_source": "host inventory (lab)",
+      "service": "Elasticsearch REST API",
+      "version": "1.4.2",
+      "cwes": [
+        "CWE-74"
+      ],
+      "title": "Elasticsearch Improper Neutralization of Special Elements",
+      "evidence": "Elasticsearch REST API running version 1.4.2 on port 9200/tcp.",
+      "cve": "CVE-2015-5377",
+      "cvss": 9.8,
+      "epss": 0.14602,
+      "in_kev": false,
+      "priority": 71.1,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R10",
+          "text": "IF cvss is critical AND epss is low THEN priority is medium",
+          "activation": 0.3599
+        },
+        {
+          "id": "R9",
+          "text": "IF cvss is critical AND epss is medium THEN priority is high",
+          "activation": 0.2301
+        }
+      ],
+      "attack_technique": "T1677 (Poisoned Pipeline Execution) / T1203 (Exploitation for Client Execution)",
+      "remediation": "Upgrade Elasticsearch to version 1.6.1 or later to mitigate remote code execution vectors. Ensure proper input sanitization and strict validation of upstream components to prevent injection of control/special elements (CWE-74). (Source: MITRE CWE, \"CWE-74 Improper Neutralization of Special Elements in Output Used by a Downstream Component\")",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/74.html",
+        "https://attack.mitre.org/techniques/T1677",
+        "https://attack.mitre.org/techniques/T1203",
+        "CWE-74: https://cwe.mitre.org/data/definitions/74.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.20",
+      "port": 5000,
+      "pid": 231471,
+      "pid_source": "host inventory (lab)",
+      "service": "Werkzeug httpd",
+      "version": "2.2.2",
+      "cwes": [
+        "CWE-770"
+      ],
+      "title": "Werkzeug v2.2.2 CVE-2023-25577",
+      "evidence": "Running Werkzeug version 2.2.2 on lab-host-20:5000/tcp (HTTP service).",
+      "cve": "CVE-2023-25577",
+      "cvss": 7.5,
+      "epss": 0.0142,
+      "in_kev": false,
+      "priority": 52.5,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R2",
+          "text": "IF exposure is internet AND cvss is high THEN priority is high",
+          "activation": 0.75
+        },
+        {
+          "id": "R13",
+          "text": "IF cvss is high AND epss is low THEN priority is medium",
+          "activation": 0.75
+        },
+        {
+          "id": "R20",
+          "text": "IF criticality is high AND cvss is high THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1499 - Endpoint Denial of Service",
+      "remediation": "Upgrade Werkzeug to version 2.2.3 or higher to patch multipart form parsing resource allocation vulnerabilities. Source / Title: MITRE CWE - CWE-770 Allocation of Resources Without Limits or Throttling (Mitigations: Clearly specify minimum/maximum expectations and limit resource accessibility).",
+      "references": [
+        "https://attack.mitre.org/techniques/T1499",
+        "https://cwe.mitre.org/data/definitions/770.html",
+        "CWE-770: https://cwe.mitre.org/data/definitions/770.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.20",
+      "port": 5000,
+      "pid": 231471,
+      "pid_source": "host inventory (lab)",
+      "service": "Werkzeug httpd",
+      "version": "2.2.2",
+      "cwes": [
+        "CWE-400",
+        "CWE-407",
+        "CWE-787"
+      ],
+      "title": "Werkzeug v2.2.2 CVE-2023-46136",
+      "evidence": "Running Werkzeug version 2.2.2 on lab-host-20:5000/tcp (HTTP service).",
+      "cve": "CVE-2023-46136",
+      "cvss": 7.5,
+      "epss": 0.01288,
+      "in_kev": false,
+      "priority": 52.5,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R2",
+          "text": "IF exposure is internet AND cvss is high THEN priority is high",
+          "activation": 0.75
+        },
+        {
+          "id": "R13",
+          "text": "IF cvss is high AND epss is low THEN priority is medium",
+          "activation": 0.75
+        },
+        {
+          "id": "R20",
+          "text": "IF criticality is high AND cvss is high THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1499 - Endpoint Denial of Service",
+      "remediation": "Upgrade Werkzeug to version 3.0.1 or higher (or the appropriate patched branch release) to resolve uncontrolled resource consumption/request parsing issues. Source / Title: OWASP Web Security Testing Guide - WSTG-APIT-06 API Rate Limiting and Resource Consumption / MITRE CWE - CWE-400 Uncontrolled Resource Consumption.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1499",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption",
+        "https://cwe.mitre.org/data/definitions/400.html",
+        "CWE-400: https://cwe.mitre.org/data/definitions/400.html",
+        "CWE-407: https://cwe.mitre.org/data/definitions/407.html",
+        "CWE-787: https://cwe.mitre.org/data/definitions/787.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.16",
+      "port": 8080,
+      "pid": 200426,
+      "pid_source": "host inventory (lab)",
+      "service": "http",
+      "version": null,
+      "cwes": [
+        "CWE-200"
+      ],
+      "title": "Jenkins CVE-2020-2103 Excessive Data Exposure in User Detail Objects",
+      "evidence": "lab-host-16:8080/tcp running Jenkins",
+      "cve": "CVE-2020-2103",
+      "cvss": 5.4,
+      "epss": 0.07044,
+      "in_kev": false,
+      "priority": 34.84,
+      "label": "medium",
+      "fired_rules": [
+        {
+          "id": "R16",
+          "text": "IF cvss is medium AND epss is low THEN priority is low",
+          "activation": 0.8
+        },
+        {
+          "id": "R3",
+          "text": "IF criticality is high AND cvss is medium AND exposure is internet THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1005 (Data from Local System)",
+      "remediation": "Upgrade Jenkins to version 2.219 / LTS 2.204.2 or later to prevent session identifiers from being exposed on user detail objects. Avoid serializing entire backend objects or sensitive fields in API and user detail responses. Sources: OWASP WSTG - WSTG-APIT-03 Excessive Data Exposure.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1005",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/03-Excessive_Data_Exposure",
+        "CWE-200: https://cwe.mitre.org/data/definitions/200.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.13",
+      "port": 8080,
+      "pid": 183583,
+      "pid_source": "host inventory (lab)",
+      "service": "http",
+      "version": null,
+      "cwes": [
+        "CWE-20"
+      ],
+      "title": "Apache Tomcat HTTP Parsing Vulnerability",
+      "evidence": "Host: lab-host-13, port: 8080, service: Apache Tomcat",
+      "cve": "CVE-2023-45648",
+      "cvss": 5.3,
+      "epss": 0.05883,
+      "in_kev": false,
+      "priority": 34.21,
+      "label": "medium",
+      "fired_rules": [
+        {
+          "id": "R16",
+          "text": "IF cvss is medium AND epss is low THEN priority is low",
+          "activation": 0.85
+        },
+        {
+          "id": "R3",
+          "text": "IF criticality is high AND cvss is medium AND exposure is internet THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1190: Exploit Public-Facing Application",
+      "remediation": "Ensure inputs are decoded and canonicalized correctly, and update Apache Tomcat to the latest stable release where the HTTP parser input validation checks have been hardened. Sources: MITRE CWE (CWE-20 Improper Input Validation).",
+      "references": [
+        "https://attack.mitre.org/techniques/T1190",
+        "https://cwe.mitre.org/data/definitions/20.html",
+        "CWE-20: https://cwe.mitre.org/data/definitions/20.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.18",
+      "port": 8080,
+      "pid": 228610,
+      "pid_source": "host inventory (lab)",
+      "service": "http",
+      "version": null,
+      "cwes": [
+        "CWE-20"
+      ],
+      "title": "Apache Tomcat CVE-2023-45648 Improper Input Validation",
+      "evidence": "lab-host-18:8080/tcp (HTTP service running Apache Tomcat versions 11.0.0-M1 through 11.0.0-M11, and 10.x versions)",
+      "cve": "CVE-2023-45648",
+      "cvss": 5.3,
+      "epss": 0.05883,
+      "in_kev": false,
+      "priority": 34.21,
+      "label": "medium",
+      "fired_rules": [
+        {
+          "id": "R16",
+          "text": "IF cvss is medium AND epss is low THEN priority is low",
+          "activation": 0.85
+        },
+        {
+          "id": "R3",
+          "text": "IF criticality is high AND cvss is medium AND exposure is internet THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1190",
+      "remediation": "Apply vendor-supplied patches or upgrade Apache Tomcat to a secure, unaffected version. Ensure all inputs are properly validated, decoded, and canonicalized before use. Refer to CWE-20 for guidance on improper input validation. (sources: CWE-20)",
+      "references": [
+        "https://attack.mitre.org/techniques/T1190",
+        "https://attack.mitre.org/techniques/T1674",
+        "https://cwe.mitre.org/data/definitions/20.html",
+        "CWE-20: https://cwe.mitre.org/data/definitions/20.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    }
+  ],
+  "meta": {
+    "run_id": "sample_multihost_gemini",
+    "created": "2026-11-21T07:30:16+00:00",
+    "provider": "gemini",
+    "models": [
+      "gemini-3.5-flash-lite",
+      "openai/gpt-oss-20b"
+    ],
+    "latency_s": {
+      "agent": 122.9,
+      "format": 19.4,
+      "total": 142.3
+    },
+    "hosts": [
+      "lab-host-12",
+      "lab-host-13",
+      "lab-host-17",
+      "lab-host-20",
+      "lab-host-16",
+      "lab-host-18"
+    ],
+    "scans": [
+      "data/lab_scans/nmap_host12.xml",
+      "data/lab_scans/nmap_host13.xml",
+      "data/lab_scans/nmap_host17.xml",
+      "data/lab_scans/nmap_host20.xml",
+      "data/lab_scans/nuclei_lab.jsonl"
+    ]
+  }
+}

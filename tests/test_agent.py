@@ -162,7 +162,7 @@ def test_ground_report_overrides_model_numbers_and_orders():
 def test_render_report_markdown():
     trace = {"llm": {"providers_answered": ["gemini-3.5-flash"]}, "latency_s": {"total": 12.3}}
     md = agent.render_report_md(_report(), trace, "run1")
-    assert "Executive summary" in md and "| 1 | low |" in md and "R1" in md
+    assert "Executive summary" in md and "CVE-2020-0001" in md and "R1" in md
     assert "CVE-2021-41773" in md and "WSTG-ATHZ-01" in md
 
 
@@ -197,3 +197,135 @@ def test_trace_callback_summary():
     cb.on_llm_end(LLMResult(generations=[[ChatGeneration(message=msg)]]), run_id=rid)
     s = cb.summary()
     assert s["providers_answered"] == ["openai/gpt-oss-20b"] and s["input_tokens"] == 10
+
+
+# ---------------------------------------------------------------- inventory, alerts, PDF
+
+INV = {"lab-host-12:80": {"ip": "172.30.0.12", "port": 80, "pid": 4321,
+                          "source": "host inventory (lab)"}}
+ROW = {"host": "lab-host-12", "port": 80, "protocol": "tcp", "service": "http",
+       "product": "Apache httpd", "version": "2.4.49", "cpe": ["cpe:/a:apache:http_server:2.4.49"],
+       "cves": []}
+
+
+def _cands():
+    return [{"cve": "CVE-2021-41773", "cvss": 9.8, "cwes": ["CWE-22"], "row": ROW, "desc": "d"}]
+
+
+def test_select_candidates_top3_round_robin_and_cap(monkeypatch):
+    def recs(cpe, limit):
+        return [{"cve_id": f"CVE-2020-{i}", "cvss_score": 9 - i, "cwes": [], "description": "x"}
+                for i in range(limit)]
+
+    monkeypatch.setattr(intel, "nvd_cves_for_cpe", recs)
+    rows = [{**ROW, "port": 80 + i} for i in range(3)]
+    out = agent.select_candidates(rows, per_service=3, cap=4)
+    assert len(out) == 4
+    assert [c["row"]["port"] for c in out] == [80, 81, 82, 80]  # one per service before a 2nd
+    assert len(agent.select_candidates(rows, per_service=3, cap=12)) == 9
+
+
+def test_enrich_findings_uses_inventory_and_drops_invented_cves():
+    tools.reset_evidence()
+    tools.EVIDENCE.note("CVE-2021-41773", cwes=["CWE-22"])
+    rep = Report(asset="a", executive_summary="s", findings=[
+        Finding(title="t", evidence="e", cve="CVE-2021-41773", remediation="Upgrade httpd."),
+        Finding(title="fake", evidence="e", cve="CVE-1999-0001", remediation="x")])
+    out = agent.enrich_findings(rep, _cands(), INV)
+    assert len(out.findings) == 1
+    f = out.findings[0]
+    assert (f.host_ip, f.port, f.pid) == ("172.30.0.12", 80, 4321)
+    assert f.pid_source == "host inventory (lab)" and f.service == "Apache httpd"
+    assert f.version == "2.4.49" and f.cwes == ["CWE-22"]
+    assert "CWE-22" in f.remediation  # citation appended deterministically
+    assert any("cwe.mitre.org/data/definitions/22" in r for r in f.references)
+
+
+def test_enrich_without_inventory_entry_keeps_scan_host():
+    tools.reset_evidence()
+    rep = Report(asset="a", executive_summary="s", findings=[
+        Finding(title="t", evidence="e", cve="CVE-2021-41773", remediation="Fix per OWASP.")])
+    f = agent.enrich_findings(rep, _cands(), {}).findings[0]
+    assert f.host_ip == "lab-host-12" and f.pid is None and f.pid_source is None
+
+
+def test_alert_dicts_only_critical_and_alert_labels_in_order():
+    from vulntriage.alerts import format_alert
+
+    crit = Finding(title="a", evidence="e", cve="CVE-1-1", cvss=9.8, remediation="r",
+                   host_ip="172.30.0.12", port=80, pid=4321, service="Apache", version="2.4.49",
+                   pid_source="host inventory (lab)", label="urgent", priority=88.0)
+    kev = Finding(title="b", evidence="e", cve="CVE-1-2", cvss=5.0, in_kev=True, remediation="r")
+    low = Finding(title="c", evidence="e", cve="CVE-1-3", cvss=3.0, label="low", remediation="r")
+    rep = Report(asset="a", executive_summary="s", findings=[crit, kev, low])
+    items = agent.alert_dicts(rep)
+    assert [i["cve_id"] for i in items] == ["CVE-1-1", "CVE-1-2"]
+    text = "\n".join(format_alert(items, "lab", "run1", "LangChain agent"))
+    positions = [text.index(label) for label in
+                 ("1) Host:", "2) PID:", "3) Service:", "4) CVE:", "5) Fix:")]
+    assert positions == sorted(positions)
+    assert "172.30.0.12:80" in text and "4321 (host inventory (lab))" in text
+
+
+def _fixture_report(n: int = 14) -> dict:
+    findings = [Finding(
+        title=f"Finding {i}", evidence="e", cve=f"CVE-2021-{1000 + i}", cvss=9.8 - i * 0.5,
+        epss=0.9 - i * 0.05, in_kev=i % 2 == 0, priority=90.0 - i * 4, label="urgent",
+        host_ip=f"172.30.0.{10 + i % 3}", port=80 + i, pid=1000 + i,
+        pid_source="host inventory (lab)", service="Apache httpd", version="2.4.49",
+        cwes=["CWE-22"], attack_technique="T1083 File and Directory Discovery",
+        remediation="Upgrade the package and restrict paths, see CWE-22 and OWASP WSTG. " * 4,
+        references=["CWE-22: https://cwe.mitre.org/data/definitions/22.html"],
+        fired_rules=[FiredRule(id="R1", text="IF cvss is critical THEN urgent")])
+        for i in range(n)]
+    rep = Report(asset="lab & <web> servers", executive_summary="Summary & <b>text</b>.",
+                 findings=findings)
+    return {**rep.model_dump(), "meta": {
+        "run_id": "fixture", "created": "2026-11-21T10:00:00", "provider": "gemini",
+        "models": ["gemini-3.5-flash-lite"], "latency_s": {"total": 12.0}}}
+
+
+def test_pdf_builds_from_fixture(tmp_path):
+    import re
+
+    from langchain_agent.pdf_report import build_pdf
+
+    out = build_pdf(_fixture_report(), tmp_path / "r.pdf")
+    raw = out.read_bytes()
+    assert raw.startswith(b"%PDF")
+    assert len(re.findall(rb"/Type\s*/Page(?!s)", raw)) > 1
+
+
+def test_pdf_cli_from_json(tmp_path):
+    from langchain_agent.pdf_report import main
+
+    src = tmp_path / "r.json"
+    src.write_text(json.dumps(_fixture_report(2)))
+    assert main([str(src)]) == 0 and (tmp_path / "r.pdf").read_bytes().startswith(b"%PDF")
+
+
+def test_pdf_handles_empty_findings(tmp_path):
+    from langchain_agent.pdf_report import build_pdf
+
+    data = {"asset": "x", "executive_summary": "none", "findings": []}
+    assert build_pdf(data, tmp_path / "e.pdf").read_bytes().startswith(b"%PDF")
+
+
+def test_fill_gaps_calls_missing_tools_only(monkeypatch):
+    import fuzzy.fuzzy_engine as fe
+
+    tools.reset_evidence()
+    tools.EVIDENCE.note("CVE-2021-41773", cvss=9.8, epss=0.9, in_kev=True)  # agent did these
+    tools.EVIDENCE.note("CVE-2021-42013", cvss=9.8)  # agent skipped this one
+    monkeypatch.setattr(intel, "epss_score", lambda c: {"epss": 0.5, "percentile": 0.9})
+    monkeypatch.setattr(intel, "kev_entry", lambda c: None)
+    monkeypatch.setattr(fe, "prioritize", lambda *a, **k: {
+        "priority": 70.0, "label": "high", "inputs": {}, "fired_rules": []})
+    cands = [{"cve": "CVE-2021-41773"}, {"cve": "CVE-2021-42013"}]
+    steps = agent.fill_gaps(cands, 8, 7)
+    called = [(s["tool"], s["args"]["cve_id"]) for s in steps if s["type"] == "action"]
+    assert called == [("prioritize_risk (gap fill)", "CVE-2021-41773"),
+                      ("query_epss (gap fill)", "CVE-2021-42013"),
+                      ("is_in_kev (gap fill)", "CVE-2021-42013"),
+                      ("prioritize_risk (gap fill)", "CVE-2021-42013")]
+    assert tools.EVIDENCE.priority["CVE-2021-42013"]["label"] == "high"

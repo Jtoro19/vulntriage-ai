@@ -27,6 +27,7 @@ class Evidence:
     def __init__(self) -> None:
         self.cves: dict[str, dict] = {}
         self.priority: dict[str, dict] = {}
+        self.knowledge: list[dict] = []  # RAG hits seen (source, title, url)
 
     def note(self, cve: str, **fields) -> None:
         known = self.cves.setdefault(cve.upper(), {})
@@ -39,6 +40,7 @@ EVIDENCE = Evidence()
 def reset_evidence() -> None:
     EVIDENCE.cves.clear()
     EVIDENCE.priority.clear()
+    EVIDENCE.knowledge.clear()
 
 
 def _dump(obj) -> str:
@@ -134,6 +136,8 @@ def search_knowledge(query: str) -> str:
         hits = _store().similarity_search(query, k=4)
     except Exception as exc:
         return _dump({"error": f"knowledge search failed: {type(exc).__name__}"})
+    EVIDENCE.knowledge.extend({k: d.metadata.get(k) for k in ("source", "title", "url")}
+                              for d in hits)
     return _dump([{"source": d.metadata["source"], "title": d.metadata["title"],
                    "url": d.metadata.get("url"), "text": _short(d.page_content, 350)}
                   for d in hits])

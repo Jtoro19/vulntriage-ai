@@ -101,7 +101,15 @@ uv run python workflow/measure_executions.py --runs 27   # metrics
 
 ### Level 2: LangChain agent
 
-LEVEL2_COMMANDS
+```bash
+uv run python -m vulntriage.inventory                 # host inventory (lab): IP, container, PID
+uv run python -m langchain_agent.rag_index            # build the FAISS index (once, about 2 min)
+uv run python -m langchain_agent.run \
+  --scan data/lab_scans/nmap_host12.xml --scan data/lab_scans/nmap_host20.xml \
+  --asset "lab web servers" --exposure 8 --criticality 7 --notify
+# provider switch: --provider gemini|groq|ollama or VULNTRIAGE_LLM_PROVIDER
+# outputs: reports/<run_id>.md|json|pdf and langchain_agent/traces/<run_id>.md|json
+```
 
 ### Level 3: fuzzy engine and evaluation
 
@@ -124,11 +132,38 @@ All numbers below are read from files produced by the scripts above.
 
 ### Level 1: n8n (`workflow/metrics/n8n_metrics.json`)
 
-LEVEL1_METRICS
+| Metric | Value |
+|---|---|
+| n8n version | 2.48.7 |
+| Active nodes | 22 |
+| Trigger | webhook (POST /webhook/vulntriage) |
+| Executions measured (real lab reports, 20 s apart) | 24 |
+| Success rate (n8n status success and HTTP 200) | 100% (24/24) |
+| Average execution time, all runs | 3.36 s |
+| Average execution time, runs with CVE findings | 5.75 s |
+| Runs with CVE-linked findings | 14 (the rest end in the no-findings branch in about 0.03 s) |
+| Runs with findings enriched by the LLM | 14/14 (Gemini 13, Groq fallback 1) |
+| Findings logged to Postgres | 44 |
+
+Per-run data: [`workflow/metrics/executions.csv`](workflow/metrics/executions.csv). An earlier
+measurement on a previous workflow version (27 runs, 2 s apart) also reached 27/27 successful
+executions, but the free-tier quotas left 8 runs without an LLM summary; spacing the runs and
+moving to Gemini Flash-Lite fixed that.
 
 ### Level 2: LangChain agent
 
-LEVEL2_METRICS
+| Run | Model(s) that answered | LLM calls | Latency (s) | Findings | Tokens in / out |
+|---|---|---|---|---|---|
+| [`example_nmap_host12_gemini`](langchain_agent/traces/example_nmap_host12_gemini.md) | gemini-3.5-flash-lite | 8 | 8.6 | 1 | 15179 / 1055 |
+| [`example_nmap_host14_gemini`](langchain_agent/traces/example_nmap_host14_gemini.md) | gemini-3.5-flash-lite | 8 | 9.7 | 1 | 14961 / 961 |
+| [`example_nmap_host12_ollama`](langchain_agent/traces/example_nmap_host12_ollama.md) | qwen2.5:14b | 5 | 19.0 | 1 | 8033 / 1135 |
+| [`sample_multihost_gemini`](langchain_agent/traces/sample_multihost_gemini.md) | gemini-3.5-flash-lite, openai/gpt-oss-20b | 45 | 142.3 | 12 | 92057 / 13998 |
+
+- The committed sample triages six lab hosts (Apache httpd 2.4.49, Tomcat 8.5.19 and Elasticsearch 1.4.2 as Java services, Flask on Werkzeug 2.2.2 as the Python service, plus the Nuclei findings on Jenkins and the Spring/Tomcat host), sends the Telegram alert for its critical findings and writes [`reports/sample_report.pdf`](reports/sample_report.pdf).
+- The local run on `qwen2.5:14b` ran 100% on the GPU (`ollama ps`: `qwen2.5:14b ... 15 GB 100% GPU`), so engagement data can stay on the machine.
+- CVSS, EPSS, KEV, fuzzy priority and fired rules in the final report are copied from the tool outputs in code; the LLM cannot alter them.
+- `gemini-3.5-flash-lite` uses fixed sampling defaults: LangChain warns that the configured temperature (0.1) is ignored for this model. Groq and Ollama honor it.
+- RAG index: FAISS with local fastembed `BAAI/bge-small-en-v1.5`, 1833 documents (171 OWASP WSTG, 956 CWE, 706 ATT&CK techniques) split into 4582 chunks, top-k 4. Details: [langchain_agent/README.md](langchain_agent/README.md).
 
 ### Level 3: fuzzy prioritization (`fuzzy/results/metrics.json`)
 
