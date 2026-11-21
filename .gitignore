@@ -33,3 +33,4 @@ postgres_data/
 
 # Local tooling
 .atl/
+workflow/*.draft.json

@@ -1,0 +1,38 @@
+# Intentionally vulnerable lab. Runs ONLY on this machine, on an internal Docker
+# network with no route to the internet. Never expose these ports publicly.
+# Start: docker compose -f lab/docker-compose.lab.yml up -d
+name: vulntriage-lab
+
+networks:
+  lab:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+services:
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    networks: { lab: { ipv4_address: 172.30.0.10 } }
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    networks: { lab: { ipv4_address: 172.30.0.11 } }
+  httpd:
+    image: vulhub/httpd:2.4.49           # CVE-2021-41773 / CVE-2021-42013
+    networks: { lab: { ipv4_address: 172.30.0.12 } }
+  tomcat:
+    image: vulhub/tomcat:8.5.19          # CVE-2017-12617
+    networks: { lab: { ipv4_address: 172.30.0.13 } }
+  drupal:
+    image: vulhub/drupal:8.5.0           # CVE-2018-7600 (Drupalgeddon2)
+    networks: { lab: { ipv4_address: 172.30.0.14 } }
+  weblogic:
+    image: vulhub/weblogic:10.3.6.0-2017 # CVE-2017-10271
+    networks: { lab: { ipv4_address: 172.30.0.15 } }
+  jenkins:
+    image: vulhub/jenkins:2.46.1         # CVE-2017-1000353
+    networks: { lab: { ipv4_address: 172.30.0.16 } }
+  elasticsearch:
+    image: vulhub/elasticsearch:1.4.2    # CVE-2015-1427
+    networks: { lab: { ipv4_address: 172.30.0.17 } }
