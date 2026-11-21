@@ -1,0 +1,45 @@
+# Lab asset inventory: a SIMULATED business scenario for the isolated lab.
+#
+# The containers really run on an internal Docker network with no internet access.
+# To make prioritization meaningful, each one plays a role in a fictitious company
+# ("ACME Retail") and gets the exposure it would have in that scenario. These values
+# feed the fuzzy engine (exposure 0-10, criticality 0-10) and are stated in every report.
+#
+# exposure zones:  internet = 9 (reachable from the internet), dmz = 6 (partner/VPN
+# reachable, behind a reverse proxy), internal = 2 (corporate LAN only)
+# criticality:     business impact if compromised (0 = none, 10 = critical)
+# software:        version known from the host side (container image), i.e. what an
+#                  authenticated scan or endpoint agent would report; used only when the
+#                  network scan cannot determine the version. Label: "host inventory (lab)".
+
+scenario: >-
+  Simulated ACME Retail environment: public website, online shop, customer portal and
+  public API are internet-facing; the corporate CMS, a partner portal and a staging app
+  sit in the DMZ; CI, logging, search and file sharing are internal only. In reality all
+  containers are isolated on a local Docker network without internet access.
+
+zones:
+  internet: 9
+  dmz: 6
+  internal: 2
+
+assets:
+  lab-host-10: {name: "Staging web app (DVWA)", zone: dmz, criticality: 3}
+  lab-host-11: {name: "Online shop (Juice Shop)", zone: internet, criticality: 8}
+  lab-host-12: {name: "Public website (Apache httpd)", zone: internet, criticality: 6}
+  lab-host-13: {name: "Partner portal (Tomcat)", zone: dmz, criticality: 7}
+  lab-host-14: {name: "Corporate CMS (Drupal)", zone: dmz, criticality: 5}
+  lab-host-15: {name: "File share (Samba)", zone: internal, criticality: 6}
+  lab-host-16: {name: "CI server (Jenkins)", zone: internal, criticality: 9}
+  lab-host-17: {name: "Log search (Elasticsearch)", zone: internal, criticality: 7}
+  lab-host-18:
+    name: "Customer portal (Spring WebMVC, Java)"
+    zone: internet
+    criticality: 9
+    software: {product: "Spring Framework", version: "5.3.17", cpe23: "cpe:2.3:a:vmware:spring_framework:5.3.17:*:*:*:*:*:*:*", port: 8080}
+  lab-host-19:
+    name: "Product search (Apache Solr, Java)"
+    zone: internal
+    criticality: 6
+    software: {product: "Apache Solr", version: "8.11.0", cpe23: "cpe:2.3:a:apache:solr:8.11.0:*:*:*:*:*:*:*", port: 8983}
+  lab-host-20: {name: "Public API (Flask/Werkzeug, Python)", zone: internet, criticality: 7}

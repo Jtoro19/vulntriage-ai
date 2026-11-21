@@ -33,12 +33,14 @@ def format_finding(f: dict, index: int, total: int) -> str:
     prio = (f"{priority:.1f}/100 ({f.get('priority_label')})"
             if isinstance(priority, int | float) else "n/a (fuzzy engine not run)")
     kev = "yes" if f.get("in_kev") else "no"
+    asset = (f" ({f['asset_name']}, {f.get('zone', 'n/a')} zone)"
+             if f.get("asset_name") else "")
     fix = (f.get("remediation") or "Review vendor advisory and patch.").strip()
     refs = f.get("references") or []
     ref_line = f"\n   Refs: {', '.join(refs[:3])}" if refs else ""
     return (
         f"[{index}/{total}] {f.get('cve_id', 'CVE n/a')}\n"
-        f"1) Host: {host}{':' + str(port) if port else ''}\n"
+        f"1) Host: {host}{':' + str(port) if port else ''}{asset}\n"
         f"2) PID: {pid_line}\n"
         f"3) Service: {service}\n"
         f"4) CVE: {f.get('cve_id', 'n/a')}\n"

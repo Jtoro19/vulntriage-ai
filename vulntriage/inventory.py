@@ -17,6 +17,7 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+from vulntriage.assets import asset_for
 from vulntriage.config import DATA_DIR
 
 LAB_NETWORK = "vulntriage-lab_lab"
@@ -114,6 +115,7 @@ def build_inventory(network: str = LAB_NETWORK) -> dict:
             only = next(iter(pids))
             owners = dict.fromkeys(listening.values(), only)
         octet = c["ip"].rsplit(".", 1)[1]
+        asset = asset_for(f"lab-host-{octet}")  # simulated role from lab/assets.yaml
         for port, inode in sorted(listening.items()):
             cpid = owners.get(inode)
             proc = pids.get(cpid, {}) if cpid else {}
@@ -124,6 +126,7 @@ def build_inventory(network: str = LAB_NETWORK) -> dict:
                 "pid_method": "socket owner" if proc else "container main process",
                 "user": proc.get("user"), "command": proc.get("command"),
                 "source": SOURCE_LABEL,
+                **{k: asset.get(k) for k in ("name", "zone", "exposure", "criticality")},
             }
     return {"generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "source": SOURCE_LABEL, "network": network, "entries": entries}

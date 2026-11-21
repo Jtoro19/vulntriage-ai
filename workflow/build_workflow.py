@@ -90,6 +90,8 @@ for (const f of findings) {
   f.pid = inv ? inv.pid : null;
   f.pid_source = inv ? (inv.source || 'host inventory (lab)') : null;
   f.process = inv ? (inv.command || '').slice(0, 80) : null;
+  f.asset_name = inv ? inv.name : null;   // simulated role from lab/assets.yaml
+  f.zone = inv ? inv.zone : null;
 }
 // Keep only findings that can be linked to CVEs (direct ids or a versioned CPE).
 const usable = findings.filter((f) => f.cves.length > 0 || f.cpe23);
@@ -125,7 +127,7 @@ for (const item of $input.all()) {
     seen.add(key);
     out.push({ json: { run_id: f.run_id, asset: f.asset, host: f.host, port: f.port,
       host_ip: f.host_ip, pid: f.pid, pid_source: f.pid_source, process: f.process,
-      service: f.service, product: f.product, version: f.version, cve_id: cve } });
+      asset_name: f.asset_name, zone: f.zone, service: f.service, product: f.product, version: f.version, cve_id: cve } });
   }
 }
 if (out.length === 0) {
@@ -212,7 +214,7 @@ return findings.map((f) => {
       ? `${l.attack_technique_id} ${l.attack_technique_name || ''}`.trim() : null,
     critical: f.critical, priority: null, summary: l.summary || null, llm_provider: provider,
     host_ip: f.host_ip, pid: f.pid, pid_source: f.pid_source, process: f.process,
-    remediation: l.remediation || null,
+    asset_name: f.asset_name, zone: f.zone, remediation: l.remediation || null,
     executive_summary: parsed.executive_summary || null,
   } };
 });
@@ -227,7 +229,8 @@ const critical = rows.filter((r) => r.critical);
 const fmt = (v, d) => (v === null || v === undefined ? 'n/a' : Number(v).toFixed(d));
 const blocks = critical.map((r, i) => [
   `[${i + 1}/${critical.length}] ${r.cve_id}`,
-  `1) Host: ${r.host_ip || r.host}${r.port ? ':' + r.port : ''}`,
+  `1) Host: ${r.host_ip || r.host}${r.port ? ':' + r.port : ''}` +
+    `${r.asset_name ? ' (' + r.asset_name + ', ' + (r.zone || 'n/a') + ' zone)' : ''}`,
   `2) PID: ${r.pid ? r.pid + ' (' + (r.pid_source || 'host inventory (lab)') + ')' : 'not found'}`,
   `3) Service: ${[r.product || r.service, r.version].filter(Boolean).join(' ') || 'unknown'}`,
   `4) CVE: ${r.cve_id}`,
