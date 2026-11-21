@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-21T07:07:59.893Z",
+  "updatedAt": "2026-11-21T07:33:20.806Z",
   "createdAt": "2026-11-21T06:14:21.699Z",
   "id": "VulnTriageAI0001",
   "name": "VulnTriage-AI",
@@ -531,6 +531,58 @@
         "responseBody": "={{ JSON.stringify($('Aggregate run').first().json) }}",
         "options": {}
       }
+    },
+    {
+      "id": "6997004b-6b39-5288-add1-d502ef80c31b",
+      "name": "PDF report requested?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        1000
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "0a621d7a-9de4-55e6-bfe1-829393e62062",
+              "leftValue": "={{ $('Receive scan report').first().json.body.pdf === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e89088c6-532d-5051-a685-bf4f74a80db4",
+      "name": "Generate PDF report (LangChain)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        1000
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8765/triage",
+        "options": {
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ report: $('Receive scan report').first().json.body.report, asset: $('Aggregate run').first().json.asset, run_id: 'n8n_pdf_' + $('Aggregate run').first().json.run_id.replace(/[^A-Za-z0-9_-]/g, ''), exposure: $('Receive scan report').first().json.body.exposure || 8, criticality: $('Receive scan report').first().json.body.criticality || 7 }) }}"
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -781,6 +833,29 @@
           }
         ]
       ]
+    },
+    "Respond with triage": {
+      "main": [
+        [
+          {
+            "node": "PDF report requested?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF report requested?": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF report (LangChain)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
     }
   },
   "settings": {
@@ -795,9 +870,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "6f34744e-8894-4a0e-b8a7-c495610eca69",
-  "activeVersionId": "6f34744e-8894-4a0e-b8a7-c495610eca69",
-  "versionCounter": 8,
+  "versionId": "89ea553f-080d-4a92-9977-2155994184d9",
+  "activeVersionId": "89ea553f-080d-4a92-9977-2155994184d9",
+  "versionCounter": 9,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],

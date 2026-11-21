@@ -1,0 +1,163 @@
+{
+  "asset": "lab-flask-python",
+  "executive_summary": "[lab-host-20] Vulnerability assessment report for lab-flask-python running Werkzeug v2.2.2 on lab-host-20:5000/tcp, identifying multiple high-severity vulnerabilities including resource consumption and debugger security controls.",
+  "findings": [
+    {
+      "host_ip": "172.30.0.20",
+      "port": 5000,
+      "pid": 231471,
+      "pid_source": "host inventory (lab)",
+      "service": "Werkzeug httpd",
+      "version": "2.2.2",
+      "cwes": [
+        "CWE-770"
+      ],
+      "title": "Werkzeug v2.2.2 multipart form parsing resource consumption",
+      "evidence": "lab-host-20:5000/tcp running Werkzeug v2.2.2 (vulnerable to multipart form parsing issues leading to resource consumption).",
+      "cve": "CVE-2023-25577",
+      "cvss": 7.5,
+      "epss": 0.0142,
+      "in_kev": false,
+      "priority": 52.5,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R2",
+          "text": "IF exposure is internet AND cvss is high THEN priority is high",
+          "activation": 0.75
+        },
+        {
+          "id": "R13",
+          "text": "IF cvss is high AND epss is low THEN priority is medium",
+          "activation": 0.75
+        },
+        {
+          "id": "R20",
+          "text": "IF criticality is high AND cvss is high THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1499 - Endpoint Denial of Service",
+      "remediation": "Upgrade Werkzeug to version 2.2.3 or later. Implement request limits and ensure proper handling of multipart form data. Source: MITRE CWE-770 Allocation of Resources Without Limits or Throttling.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/770.html",
+        "https://attack.mitre.org/techniques/T1499/",
+        "CWE-770: https://cwe.mitre.org/data/definitions/770.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.20",
+      "port": 5000,
+      "pid": 231471,
+      "pid_source": "host inventory (lab)",
+      "service": "Werkzeug httpd",
+      "version": "2.2.2",
+      "cwes": [
+        "CWE-400",
+        "CWE-407",
+        "CWE-787"
+      ],
+      "title": "Werkzeug v2.2.2 multipart parsing and resource exhaustion",
+      "evidence": "lab-host-20:5000/tcp running Werkzeug v2.2.2 (exhibiting multipart parsing / resource exhaustion vulnerability characteristics).",
+      "cve": "CVE-2023-46136",
+      "cvss": 7.5,
+      "epss": 0.01288,
+      "in_kev": false,
+      "priority": 52.5,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R2",
+          "text": "IF exposure is internet AND cvss is high THEN priority is high",
+          "activation": 0.75
+        },
+        {
+          "id": "R13",
+          "text": "IF cvss is high AND epss is low THEN priority is medium",
+          "activation": 0.75
+        },
+        {
+          "id": "R20",
+          "text": "IF criticality is high AND cvss is high THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1499 - Endpoint Denial of Service",
+      "remediation": "Upgrade Werkzeug to version 3.0.1+ (or patch level addressing uncontrolled resource consumption). Use resource-limiting settings provided by the operating system or environment, and control the allocation of limited request parsing buffers. Sources: MITRE CWE-400 Uncontrolled Resource Consumption and OWASP WSTG-APIT-06 API Rate Limiting and Resource Consumption.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/400.html",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption",
+        "https://attack.mitre.org/techniques/T1499/",
+        "CWE-400: https://cwe.mitre.org/data/definitions/400.html",
+        "CWE-407: https://cwe.mitre.org/data/definitions/407.html",
+        "CWE-787: https://cwe.mitre.org/data/definitions/787.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.20",
+      "port": 5000,
+      "pid": 231471,
+      "pid_source": "host inventory (lab)",
+      "service": "Werkzeug httpd",
+      "version": "2.2.2",
+      "cwes": [
+        "CWE-352"
+      ],
+      "title": "Werkzeug v2.2.2 debugger vulnerability",
+      "evidence": "lab-host-20:5000/tcp running Werkzeug v2.2.2 (debugger vulnerability in affected versions).",
+      "cve": "CVE-2024-34069",
+      "cvss": 7.5,
+      "epss": 0.03397,
+      "in_kev": false,
+      "priority": 52.5,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R2",
+          "text": "IF exposure is internet AND cvss is high THEN priority is high",
+          "activation": 0.75
+        },
+        {
+          "id": "R13",
+          "text": "IF cvss is high AND epss is low THEN priority is medium",
+          "activation": 0.75
+        },
+        {
+          "id": "R20",
+          "text": "IF criticality is high AND cvss is high THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1185 - Browser Session Hijacking",
+      "remediation": "Upgrade Werkzeug to the latest patched version where debugger security controls are properly enforced. Ensure the development debugger is disabled in production environments. Implement robust anti-CSRF tokens and cookie validation checks for any sensitive state-changing requests. Sources: MITRE CWE-352 Cross-Site Request Forgery and OWASP WSTG-SESS-05 Cross Site Request Forgery.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/352.html",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/10-Session_Management/05-Cross_Site_Request_Forgery",
+        "https://attack.mitre.org/techniques/T1185/",
+        "CWE-352: https://cwe.mitre.org/data/definitions/352.html",
+        "OWASP WSTG WSTG-APIT-06 API Rate Limiting and Resource Consumption: https://owasp.org/www-project-web-security-testing-guide/latest/16-API_Testing/06-API_Rate_Limiting_and_Resource_Consumption"
+      ]
+    }
+  ],
+  "meta": {
+    "run_id": "n8n_pdf_n8n-1795246418433",
+    "created": "2026-11-21T07:33:55+00:00",
+    "provider": "gemini",
+    "models": [
+      "gemini-3.5-flash-lite"
+    ],
+    "latency_s": {
+      "agent": 7.6,
+      "format": 4.4,
+      "total": 12.0
+    },
+    "hosts": [
+      "lab-host-20"
+    ],
+    "scans": [
+      "/tmp/tmpghwfb0yv.xml"
+    ]
+  }
+}

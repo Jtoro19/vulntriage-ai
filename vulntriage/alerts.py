@@ -81,3 +81,16 @@ def send_telegram(messages: list[str]) -> list[int]:
         resp.raise_for_status()
         ids.append(resp.json()["result"]["message_id"])
     return ids
+
+
+def send_telegram_document(path: str, caption: str) -> int:
+    """Send a file (the PDF report) to the configured chat. Returns the message id."""
+    token, chat = secret("TELEGRAM_BOT_TOKEN"), secret("TELEGRAM_CHAT_ID")
+    if not token or not chat:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in .env")
+    with open(path, "rb") as fh:
+        resp = requests.post(f"https://api.telegram.org/bot{token}/sendDocument",
+                             data={"chat_id": chat, "caption": caption[:1000]},
+                             files={"document": fh}, timeout=60)
+    resp.raise_for_status()
+    return resp.json()["result"]["message_id"]

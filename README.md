@@ -12,7 +12,7 @@ Manizales (2026-2). Team: see the course presentation.
 
 | Level | What | Where |
 |-------|------|-------|
-| 1 | n8n workflow: webhook, enrichment, LLM summary, critical-finding alerts | [`workflow/`](workflow/) |
+| 1 | n8n workflow: webhook, enrichment, LLM summary, critical-finding alerts, optional PDF trigger | [`workflow/`](workflow/) |
 | 2 | Same use case as a LangChain ReAct agent with RAG and structured output | [`langchain_agent/`](langchain_agent/) |
 | 3 | Fuzzy-logic prioritization engine used as an agent tool, evaluated against CVSS | [`fuzzy/`](fuzzy/) |
 
@@ -216,6 +216,12 @@ the same five fields as the alerts, the ranking by fuzzy priority, four charts
 (severity distribution, CVSS vs EPSS colored by KEV, priority ranking, findings
 per host), recommendations and an appendix with sources. Sample:
 [reports/sample_report.pdf](reports/sample_report.pdf).
+
+The n8n workflow can trigger the same report: start the local bridge
+(`uv run python -m langchain_agent.api`, listening only on the Docker gateway
+172.17.0.1) and send `"pdf": true` in the webhook body. After answering the
+webhook, n8n calls the bridge, which runs the LangChain agent on the report and
+sends the PDF to Telegram as a document (tested: `reports/n8n_pdf_*`).
 
 ## Design decisions
 

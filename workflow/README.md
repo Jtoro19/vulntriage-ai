@@ -9,8 +9,8 @@ referenced by name.
 
 | # | Node | Type | Role |
 |---|------|------|------|
-| 1 | Receive scan report | Webhook (POST `/webhook/vulntriage`) | Trigger. Body: `{report, asset, run_id?, notify?}` with an Nmap XML or Nuclei JSONL report. |
-| 2 | Parse scan report | Code | Extracts host, port, service, product, version, CPE and CVE ids. |
+| 1 | Receive scan report | Webhook (POST `/webhook/vulntriage`) | Trigger. Body: `{report, asset, inventory?, run_id?, notify?, pdf?}` with an Nmap XML or Nuclei JSONL report and the host inventory (lab) entries. |
+| 2 | Parse scan report | Code | Extracts host, port, service, product, version, CPE and CVE ids; joins the host inventory (real lab IP and PID). |
 | 3 | Has CVE ids? | IF | Findings with CVE ids go straight on; the rest go to the CPE lookup. |
 | 4 | NVD CPE lookup | HTTP Request | NVD API 2.0 `virtualMatchString` with the service CPE (throttled: 1 request per 700 ms). |
 | 5 | Top CVEs from CPE | Code | Keeps the 3 highest-CVSS CVEs for the detected version. |
@@ -27,10 +27,12 @@ referenced by name.
 | 16 | Groq fallback | HTTP Request | Runs only from the Gemini error output (quota, 429, 5xx). |
 | 17 | Parse LLM output | Code | Accepts Gemini or Groq output; degrades to intel-only if both fail. |
 | 18 | Log findings to Postgres | Postgres | Inserts every enriched finding into `vulntriage.findings`. |
-| 19 | Aggregate run | Code | Run summary and alert text. |
+| 19 | Aggregate run | Code | Run summary and the five-field alert text (host IP, PID, service, CVE info, recommendation). |
 | 20 | Critical findings? (KEV or CVSS >= 9) | IF | Routes runs with critical findings to Telegram. |
 | 21 | Telegram alert | HTTP Request | Telegram Bot API `sendMessage`. |
 | 22 | Respond with triage | Respond to Webhook | Returns the triage JSON to the caller. |
+| 23 | PDF report requested? | IF | Optional branch, after the response, when the request has `"pdf": true`. |
+| 24 | Generate PDF report (LangChain) | HTTP Request | Calls the local bridge `langchain_agent/api.py`, which runs the LangChain agent (fuzzy priority) and sends the PDF report to Telegram. |
 
 ## Deploy and test
 
@@ -45,6 +47,13 @@ curl -s -X POST http://localhost:5678/webhook/vulntriage \
 The workflow is authored in `build_workflow.py` (reviewable code), imported
 with the n8n CLI and exported back from the live instance. The Postgres
 credential is created once with `n8n import:credentials` (see the main README).
+
+## Optional PDF report from n8n
+
+```bash
+uv run python -m langchain_agent.api        # bridge on http://172.17.0.1:8765 (Docker gateway only)
+# then send "pdf": true in the webhook body; n8n answers first, then triggers the PDF
+```
 
 ## Metrics
 

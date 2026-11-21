@@ -313,6 +313,15 @@ GROQ_BODY = (
     "{ role: 'system', content: $('Build LLM prompt').first().json.system }, "
     "{ role: 'user', content: $('Build LLM prompt').first().json.user }] }) }}"
 )
+# Optional: after answering the webhook, ask the local LangChain bridge
+# (langchain_agent/api.py) for the fuzzy-ranked PDF report; it sends the PDF to Telegram.
+PDF_BODY = (
+    "={{ JSON.stringify({ report: $('Receive scan report').first().json.body.report, "
+    "asset: $('Aggregate run').first().json.asset, "
+    "run_id: 'n8n_pdf_' + $('Aggregate run').first().json.run_id.replace(/[^A-Za-z0-9_-]/g, ''), "
+    "exposure: $('Receive scan report').first().json.body.exposure || 8, "
+    "criticality: $('Receive scan report').first().json.body.criticality || 7 }) }}"
+)
 TELEGRAM_BODY = (
     "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID, text: $json.message, "
     "disable_web_page_preview: true }) }}"
@@ -383,6 +392,12 @@ def build() -> dict:
             "respondWith": "json",
             "responseBody": "={{ JSON.stringify($('Aggregate run').first().json) }}",
             "options": {}}),
+        if_node("PDF report requested?", (1200, 1000),
+                "={{ $('Receive scan report').first().json.body.pdf === true }}",
+                {"type": "boolean", "operation": "true", "singleValue": True}),
+        http("Generate PDF report (LangChain)", (1440, 1000),
+             "http://host.docker.internal:8765/triage", method="POST",
+             json_body=PDF_BODY, timeout=600000, onError="continueRegularOutput"),
     ]
 
     def link(*targets: str | tuple[str, int]) -> list:
@@ -411,6 +426,8 @@ def build() -> dict:
         "Critical findings? (KEV or CVSS >= 9)": {
             "main": [link("Telegram alert"), link("Respond with triage")]},
         "Telegram alert": {"main": [link("Respond with triage")]},
+        "Respond with triage": {"main": [link("PDF report requested?")]},
+        "PDF report requested?": {"main": [link("Generate PDF report (LangChain)"), []]},
     }
     return {
         "id": "VulnTriageAI0001",
