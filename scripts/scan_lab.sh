@@ -42,7 +42,7 @@ docker run --rm --network vulntriage-lab_lab \
   -v "$PWD/.cache/nuclei-templates:/templates:ro" \
   -v "$RAW:/scan" projectdiscovery/nuclei:latest \
   -l /scan/targets.txt -t /templates/http/cves -t /templates/network/cves -severity critical,high,medium \
-  -disable-update-check -silent -jsonl -o /scan/nuclei.jsonl -rate-limit 50 || true
+  -etags dos,intrusive,fuzz -disable-update-check -silent -jsonl -o /scan/nuclei.jsonl -rate-limit 50 || true
 [[ -f "$RAW/nuclei.jsonl" ]] || : > "$RAW/nuclei.jsonl"
 uv run python scripts/anonymize_scan.py "$RAW/nuclei.jsonl" "$OUT/nuclei_lab.jsonl"
 echo "Reports written to $OUT"

@@ -269,48 +269,48 @@ TELEGRAM_BODY = (
 
 def build() -> dict:
     nodes = [
-        node("Receive scan report", "n8n-nodes-base.webhook", 2, (0, 300), {
+        node("Receive scan report", "n8n-nodes-base.webhook", 2, (0, 0), {
             "httpMethod": "POST", "path": "vulntriage", "responseMode": "responseNode",
             "options": {}}, webhookId="5b1d2c7e-6f0a-4c3e-9a51-3d7f2a1e0b01"),
-        code("Parse scan report", PARSE_JS, (220, 300)),
-        if_node("Has CVE ids?", (440, 300), "={{ $json.cves.length > 0 || $json.empty === true }}",
+        code("Parse scan report", PARSE_JS, (240, 0)),
+        if_node("Has CVE ids?", (480, 0), "={{ $json.cves.length > 0 || $json.empty === true }}",
                 {"type": "boolean", "operation": "true", "singleValue": True}),
-        http("NVD CPE lookup", (660, 420), "https://services.nvd.nist.gov/rest/json/cves/2.0",
+        http("NVD CPE lookup", (660, 200), "https://services.nvd.nist.gov/rest/json/cves/2.0",
              query=[("virtualMatchString", "={{ $json.cpe23 }}"), ("resultsPerPage", "200")],
              headers=NVD_HEADERS, batch_ms=700, **RETRY),
-        code("Top CVEs from CPE", TOP_CVES_JS, (880, 420), per_item=True),
-        node("Join CVE sources", "n8n-nodes-base.merge", 3, (1100, 300), {}),
-        code("One item per CVE", SPLIT_JS, (1320, 300)),
-        if_node("CVEs linked?", (1540, 300), "={{ $json.no_cves !== true }}",
+        code("Top CVEs from CPE", TOP_CVES_JS, (900, 200), per_item=True),
+        node("Join CVE sources", "n8n-nodes-base.merge", 3, (1080, 0), {}),
+        code("One item per CVE", SPLIT_JS, (1320, 0)),
+        if_node("CVEs linked?", (1560, 0), "={{ $json.no_cves !== true }}",
                 {"type": "boolean", "operation": "true", "singleValue": True}),
-        node("Respond no findings", "n8n-nodes-base.respondToWebhook", 1.1, (1760, 520), {
+        node("Respond no findings", "n8n-nodes-base.respondToWebhook", 1.1, (1800, 200), {
             "respondWith": "json",
             "responseBody": "={{ JSON.stringify({ run_id: $json.run_id, asset: $json.asset, "
                             "findings: 0, critical_count: 0, parsed_services: $json.parsed_services, "
                             "message: 'No CVE-linked findings in this report' }) }}",
             "options": {}}),
-        http("NVD CVE details", (1760, 300), "https://services.nvd.nist.gov/rest/json/cves/2.0",
+        http("NVD CVE details", (0, 500), "https://services.nvd.nist.gov/rest/json/cves/2.0",
              query=[("cveId", "={{ $json.cve_id }}")], headers=NVD_HEADERS, batch_ms=700,
              **RETRY),
-        http("FIRST EPSS", (1980, 300), "https://api.first.org/data/v1/epss",
+        http("FIRST EPSS", (240, 500), "https://api.first.org/data/v1/epss",
              query=[("cve", "={{ $('One item per CVE').item.json.cve_id }}")], **RETRY),
-        http("CISA KEV catalog", (2200, 300),
+        http("CISA KEV catalog", (480, 500),
              "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
              executeOnce=True, **RETRY),
-        code("Combine intel", COMBINE_JS, (2420, 300)),
-        code("Build LLM prompt", PROMPT_JS, (2640, 300)),
-        http("Gemini summarize", (2860, 300),
+        code("Combine intel", COMBINE_JS, (720, 500)),
+        code("Build LLM prompt", PROMPT_JS, (960, 500)),
+        http("Gemini summarize", (1200, 500),
              "=https://generativelanguage.googleapis.com/v1beta/models/"
              "{{ $env.VULNTRIAGE_GEMINI_MODEL || 'gemini-3.5-flash' }}:generateContent",
              method="POST", headers=[("x-goog-api-key", "={{ $env.GOOGLE_API_KEY }}")],
              json_body=GEMINI_BODY, timeout=90000, retryOnFail=True, maxTries=2,
              waitBetweenTries=5000, onError="continueErrorOutput"),
-        http("Groq fallback", (3080, 480), "https://api.groq.com/openai/v1/chat/completions",
+        http("Groq fallback", (1440, 700), "https://api.groq.com/openai/v1/chat/completions",
              method="POST", headers=[("Authorization", "=Bearer {{ $env.GROQ_API_KEY }}")],
              json_body=GROQ_BODY, timeout=90000, retryOnFail=True, maxTries=2,
              waitBetweenTries=5000, onError="continueRegularOutput"),
-        code("Parse LLM output", PARSE_LLM_JS, (3300, 300)),
-        node("Log findings to Postgres", "n8n-nodes-base.postgres", 2.5, (3520, 300), {
+        code("Parse LLM output", PARSE_LLM_JS, (1680, 500)),
+        node("Log findings to Postgres", "n8n-nodes-base.postgres", 2.5, (0, 1000), {
             "schema": {"__rl": True, "mode": "list", "value": "public"},
             "table": {"__rl": True, "mode": "name", "value": "findings"},
             "columns": {"mappingMode": "defineBelow", "value": {
@@ -320,14 +320,14 @@ def build() -> dict:
                     "attack_technique", "critical", "summary", "llm_provider")},
                 "matchingColumns": [], "schema": []},
             "options": {}}, credentials=PG_CREDENTIAL),
-        code("Aggregate run", AGGREGATE_JS, (3740, 300)),
-        if_node("Critical findings? (KEV or CVSS >= 9)", (3960, 300),
+        code("Aggregate run", AGGREGATE_JS, (240, 1000)),
+        if_node("Critical findings? (KEV or CVSS >= 9)", (480, 1000),
                 "={{ $json.critical_count > 0 && $json.notify }}",
                 {"type": "boolean", "operation": "true", "singleValue": True}),
-        http("Telegram alert", (4180, 200),
+        http("Telegram alert", (720, 1200),
              "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
              method="POST", json_body=TELEGRAM_BODY, onError="continueRegularOutput"),
-        node("Respond with triage", "n8n-nodes-base.respondToWebhook", 1.1, (4400, 300), {
+        node("Respond with triage", "n8n-nodes-base.respondToWebhook", 1.1, (960, 1000), {
             "respondWith": "json",
             "responseBody": "={{ JSON.stringify($('Aggregate run').first().json) }}",
             "options": {}}),

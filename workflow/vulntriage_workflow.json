@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-21T06:33:25.586Z",
+  "updatedAt": "2026-11-21T06:37:56.959Z",
   "createdAt": "2026-11-21T06:14:21.699Z",
   "id": "VulnTriageAI0001",
   "name": "VulnTriage-AI",
@@ -14,7 +14,7 @@
       "typeVersion": 2,
       "position": [
         0,
-        300
+        0
       ],
       "parameters": {
         "httpMethod": "POST",
@@ -30,8 +30,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
-        300
+        240,
+        0
       ],
       "parameters": {
         "jsCode": "// Parse an Nmap XML (-sV -oX) or Nuclei JSONL report into one item per service.\nconst body = $input.first().json.body || $input.first().json;\nconst report = String(body.report || '');\nconst asset = body.asset || 'lab';\nconst runId = body.run_id || `n8n-${Date.now()}`;\nconst cveRe = /CVE-\\d{4}-\\d{4,}/gi;\nconst uniq = (a) => [...new Set(a.map((c) => c.toUpperCase()))];\n\nfunction cpe22to23(c) {\n  if (!c || !c.startsWith('cpe:/')) return null;\n  const p = c.slice(5).split(':');\n  if (p.length < 4 || !p[3]) return null; // a CPE without a version is too broad\n  while (p.length < 11) p.push('*');\n  return 'cpe:2.3:' + p.slice(0, 11).map((x) => x || '*').join(':');\n}\n\nconst findings = [];\nif (report.trim().startsWith('<')) {\n  for (const h of report.match(/<host\\b[\\s\\S]*?<\\/host>/g) || []) {\n    const addr = (h.match(/<address addr=\"([^\"]+)\" addrtype=\"ipv4\"/) || [])[1] || 'unknown';\n    const portRe = /<port protocol=\"(\\w+)\" portid=\"(\\d+)\">([\\s\\S]*?)<\\/port>/g;\n    let m;\n    while ((m = portRe.exec(h))) {\n      const inner = m[3];\n      if (!/<state state=\"open\"/.test(inner)) continue;\n      const attr = (n) => (inner.match(new RegExp(`<service[^>]*\\\\s${n}=\"([^\"]*)\"`)) || [])[1] || null;\n      const cpes = [...inner.matchAll(/<cpe>([^<]+)<\\/cpe>/g)].map((x) => x[1]);\n      findings.push({\n        run_id: runId, asset, host: addr, port: Number(m[2]), service: attr('name'),\n        product: attr('product'), version: attr('version'),\n        cpe23: cpes.map(cpe22to23).find(Boolean) || null,\n        cves: uniq(inner.match(cveRe) || []), source: 'nmap',\n      });\n    }\n  }\n} else {\n  for (const line of report.split('\\n')) {\n    if (!line.trim()) continue;\n    const it = JSON.parse(line);\n    const info = it.info || {};\n    let ids = (info.classification || {})['cve-id'] || [];\n    if (typeof ids === 'string') ids = [ids];\n    findings.push({\n      run_id: runId, asset, host: it.ip || it.host || 'unknown',\n      port: it.port ? Number(it.port) : null, service: it.type || null,\n      product: info.name || it['template-id'], version: null, cpe23: null,\n      cves: uniq([...ids, ...((it['template-id'] || '').match(cveRe) || [])]), source: 'nuclei',\n    });\n  }\n}\n// Keep only findings that can be linked to CVEs (direct ids or a versioned CPE).\nconst usable = findings.filter((f) => f.cves.length > 0 || f.cpe23);\nif (usable.length === 0) {\n  return [{ json: { run_id: runId, asset, host: null, port: null, cves: [], cpe23: null,\n    empty: true, parsed_services: findings.length } }];\n}\nreturn usable.map((f) => ({ json: { ...f, parsed_services: findings.length } }));"
@@ -43,8 +43,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        440,
-        300
+        480,
+        0
       ],
       "parameters": {
         "conditions": {
@@ -75,7 +75,7 @@
       "typeVersion": 4.2,
       "position": [
         660,
-        420
+        200
       ],
       "parameters": {
         "method": "GET",
@@ -122,8 +122,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        420
+        900,
+        200
       ],
       "parameters": {
         "jsCode": "// Keep the 3 highest-CVSS CVEs that NVD reports for the service CPE.\nconst original = $('Has CVE ids?').item.json;\nconst vulns = ($input.item.json.vulnerabilities || []).map((v) => {\n  const m = v.cve.metrics || {};\n  const metric = (m.cvssMetricV31 || m.cvssMetricV30 || m.cvssMetricV2 || [])[0];\n  return { id: v.cve.id, score: metric ? metric.cvssData.baseScore : 0 };\n});\nvulns.sort((a, b) => b.score - a.score);\nreturn { json: { ...original, cves: vulns.slice(0, 3).map((v) => v.id), cve_source: 'nvd_cpe' } };",
@@ -136,8 +136,8 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1100,
-        300
+        1080,
+        0
       ],
       "parameters": {}
     },
@@ -148,7 +148,7 @@
       "typeVersion": 2,
       "position": [
         1320,
-        300
+        0
       ],
       "parameters": {
         "jsCode": "// One item per (host, port, CVE), deduplicated and capped to bound latency.\nconst MAX_CVES = 12;\nconst seen = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const f = item.json;\n  for (const cve of f.cves || []) {\n    const key = `${f.host}:${f.port}:${cve}`;\n    if (seen.has(key) || out.length >= MAX_CVES) continue;\n    seen.add(key);\n    out.push({ json: { run_id: f.run_id, asset: f.asset, host: f.host, port: f.port,\n      service: f.service, product: f.product, version: f.version, cve_id: cve } });\n  }\n}\nif (out.length === 0) {\n  const f = $input.first().json;\n  return [{ json: { no_cves: true, run_id: f.run_id, asset: f.asset,\n    parsed_services: f.parsed_services || 0 } }];\n}\nreturn out;"
@@ -160,8 +160,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1540,
-        300
+        1560,
+        0
       ],
       "parameters": {
         "conditions": {
@@ -191,8 +191,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1760,
-        520
+        1800,
+        200
       ],
       "parameters": {
         "respondWith": "json",
@@ -206,8 +206,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1760,
-        300
+        0,
+        500
       ],
       "parameters": {
         "method": "GET",
@@ -250,8 +250,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1980,
-        300
+        240,
+        500
       ],
       "parameters": {
         "method": "GET",
@@ -279,8 +279,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2200,
-        300
+        480,
+        500
       ],
       "parameters": {
         "method": "GET",
@@ -300,8 +300,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2420,
-        300
+        720,
+        500
       ],
       "parameters": {
         "jsCode": "// Join NVD, EPSS and KEV data for each CVE (items keep the same order).\nconst kevSet = new Set(($input.first().json.vulnerabilities || []).map((v) => v.cveID));\nconst base = $('One item per CVE').all();\nconst nvd = $('NVD CVE details').all();\nconst epss = $('FIRST EPSS').all();\nreturn base.map((b, i) => {\n  const f = b.json;\n  const v = ((nvd[i] && nvd[i].json.vulnerabilities) || [])[0];\n  const cve = v ? v.cve : {};\n  const m = cve.metrics || {};\n  const metric = (m.cvssMetricV31 || m.cvssMetricV30 || m.cvssMetricV2 || [])[0];\n  const cvss = metric ? metric.cvssData.baseScore : null;\n  const desc = ((cve.descriptions || []).find((d) => d.lang === 'en') || {}).value || '';\n  const cwes = [...new Set((cve.weaknesses || []).flatMap((w) => w.description)\n    .map((d) => d.value).filter((x) => x && x.startsWith('CWE-')))];\n  const e = ((epss[i] && epss[i].json.data) || [])[0];\n  const epssScore = e ? Number(e.epss) : 0;\n  const inKev = kevSet.has(f.cve_id);\n  return { json: { ...f, cvss_score: cvss, epss: epssScore, in_kev: inKev, cwes,\n    description: desc.slice(0, 400), critical: inKev || (cvss !== null && cvss >= 9) } };\n});"
@@ -313,8 +313,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
-        300
+        960,
+        500
       ],
       "parameters": {
         "jsCode": "// Build one LLM request for the whole report (one call per execution keeps us in quota).\nconst findings = $input.all().map((i) => i.json);\nconst lines = findings.map((f, n) => `${n + 1}. ${f.cve_id} | ${f.product || f.service} ` +\n  `${f.version || ''} | CVSS ${f.cvss_score} | EPSS ${f.epss.toFixed(4)} | KEV ${f.in_kev} | ` +\n  `${f.cwes.join(',')} | ${f.description}`);\nconst system = 'You are a penetration testing analyst working ONLY on authorized lab assets. ' +\n  'For each finding write a one-sentence risk summary and map it to the single most relevant ' +\n  'MITRE ATT&CK Enterprise technique. Never write exploit code. Answer with JSON only: ' +\n  '{\"executive_summary\": str, \"findings\": [{\"cve_id\": str, \"summary\": str, ' +\n  '\"attack_technique_id\": str, \"attack_technique_name\": str}]}';\nreturn [{ json: { system, user: 'Findings:\\n' + lines.join('\\n'), findings } }];"
@@ -326,8 +326,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2860,
-        300
+        1200,
+        500
       ],
       "parameters": {
         "method": "POST",
@@ -359,8 +359,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3080,
-        480
+        1440,
+        700
       ],
       "parameters": {
         "method": "POST",
@@ -392,8 +392,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3300,
-        300
+        1680,
+        500
       ],
       "parameters": {
         "jsCode": "// Accept either a Gemini or a Groq response; degrade gracefully if both failed.\nconst r = $input.first().json;\nlet text = null;\nlet provider = 'none';\nif (r.candidates) {\n  text = r.candidates[0].content.parts.map((p) => p.text || '').join('');\n  provider = 'gemini';\n} else if (r.choices) {\n  text = r.choices[0].message.content;\n  provider = 'groq';\n}\nlet parsed = { executive_summary: 'LLM unavailable: enrichment data only.', findings: [] };\nif (text) {\n  try {\n    parsed = JSON.parse(text.replace(/^```(json)?|```$/gm, '').trim());\n  } catch (e) {\n    parsed.executive_summary = text.slice(0, 500);\n  }\n}\nconst byCve = Object.fromEntries((parsed.findings || []).map((f) => [f.cve_id, f]));\nconst findings = $('Build LLM prompt').first().json.findings;\nreturn findings.map((f) => {\n  const l = byCve[f.cve_id] || {};\n  return { json: {\n    pipeline: 'n8n', run_id: f.run_id, asset: f.asset, host: f.host, port: f.port,\n    service: f.service, product: f.product, version: f.version, cve_id: f.cve_id,\n    cvss_score: f.cvss_score, epss: f.epss, in_kev: f.in_kev, cwes: f.cwes.join(','),\n    attack_technique: l.attack_technique_id\n      ? `${l.attack_technique_id} ${l.attack_technique_name || ''}`.trim() : null,\n    critical: f.critical, priority: null, summary: l.summary || null, llm_provider: provider,\n    executive_summary: parsed.executive_summary || null,\n  } };\n});"
@@ -405,8 +405,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3520,
-        300
+        0,
+        1000
       ],
       "parameters": {
         "schema": {
@@ -458,8 +458,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3740,
-        300
+        240,
+        1000
       ],
       "parameters": {
         "jsCode": "// Summarize the run and prepare the Telegram alert text for critical findings.\nconst rows = $('Parse LLM output').all().map((i) => i.json);\nconst body = $('Receive scan report').first().json.body || {};\nconst critical = rows.filter((r) => r.critical);\nconst lines = critical.map((r) => `- ${r.cve_id} on ${r.host}:${r.port} (${r.product || r.service})` +\n  ` CVSS ${r.cvss_score}, EPSS ${Number(r.epss).toFixed(3)}${r.in_kev ? ', in CISA KEV' : ''}` +\n  `${r.attack_technique ? ', ' + r.attack_technique : ''}`);\nconst message = `VulnTriage-AI alert (${rows[0].asset}, run ${rows[0].run_id})\\n` +\n  `${critical.length} critical of ${rows.length} findings:\\n${lines.join('\\n')}\\n\\n` +\n  `${rows[0].executive_summary || ''}`.slice(0, 3900);\nreturn [{ json: {\n  run_id: rows[0].run_id, asset: rows[0].asset, findings: rows.length,\n  critical_count: critical.length, notify: body.notify !== false,\n  llm_provider: rows[0].llm_provider, executive_summary: rows[0].executive_summary,\n  message, results: rows.map(({ executive_summary, ...r }) => r),\n} }];"
@@ -471,8 +471,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3960,
-        300
+        480,
+        1000
       ],
       "parameters": {
         "conditions": {
@@ -502,8 +502,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4180,
-        200
+        720,
+        1200
       ],
       "parameters": {
         "method": "POST",
@@ -523,8 +523,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        4400,
-        300
+        960,
+        1000
       ],
       "parameters": {
         "respondWith": "json",
@@ -795,9 +795,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "4b1e9a2e-977a-4371-8ff3-ea5d0a246ed1",
-  "activeVersionId": "4b1e9a2e-977a-4371-8ff3-ea5d0a246ed1",
-  "versionCounter": 2,
+  "versionId": "3dba1c30-6be8-4aa5-8bc4-74c37fa2d2d3",
+  "activeVersionId": "3dba1c30-6be8-4aa5-8bc4-74c37fa2d2d3",
+  "versionCounter": 3,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
