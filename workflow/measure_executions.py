@@ -49,6 +49,8 @@ def main() -> None:
     parser.add_argument("--runs", type=int, default=24)
     parser.add_argument("--notify-every", type=int, default=6,
                         help="send the Telegram alert on every k-th run (others log only)")
+    parser.add_argument("--pause", type=float, default=20.0,
+                        help="seconds between runs (free-tier LLM quotas are per minute)")
     args = parser.parse_args()
 
     reports = [p for p in sorted(SCANS.iterdir()) if p.name in ASSETS and p.stat().st_size > 0]
@@ -74,7 +76,7 @@ def main() -> None:
                      "llm_provider": data.get("llm_provider")})
         print(f"run {i + 1:02d} {report.name:18s} HTTP {status} {client_s:6.2f}s "
               f"findings={data.get('findings')} llm={data.get('llm_provider')}")
-        time.sleep(2)  # be gentle with the free-tier LLM and NVD quotas
+        time.sleep(args.pause)  # free-tier LLM and NVD quotas
 
     time.sleep(3)
     execs = psql(
@@ -88,6 +90,7 @@ def main() -> None:
     durations = [r["n8n_seconds"] for r in rows if r.get("n8n_seconds") is not None]
     ok = [r for r in rows if r.get("n8n_status") == "success" and r["http_status"] == 200]
     with_findings = [r for r in rows if r.get("findings")]
+    llm_ok = [r for r in rows if r.get("llm_provider") in ("gemini", "groq")]
     providers = {}
     for r in rows:
         providers[str(r.get("llm_provider"))] = providers.get(str(r.get("llm_provider")), 0) + 1
@@ -113,6 +116,11 @@ def main() -> None:
         if with_findings else None,
         "total_findings": sum(r.get("findings") or 0 for r in rows),
         "llm_provider_counts": providers,
+        "runs_with_findings": len(with_findings),
+        "llm_enriched_runs": len(llm_ok),
+        "llm_enriched_rate_of_runs_with_findings": round(len(llm_ok) / len(with_findings), 4)
+        if with_findings else None,
+        "pause_between_runs_seconds": args.pause,
         "reports_used": [p.name for p in reports],
     }
     OUT.mkdir(parents=True, exist_ok=True)

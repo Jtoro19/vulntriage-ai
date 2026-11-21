@@ -16,7 +16,7 @@ LAB_SCANS_DIR = DATA_DIR / "lab_scans"
 
 # LLM provider switch: gemini (primary), groq, ollama.
 LLM_PROVIDER = os.getenv("VULNTRIAGE_LLM_PROVIDER", "gemini")
-GEMINI_MODEL = os.getenv("VULNTRIAGE_GEMINI_MODEL", "gemini-3.5-flash")
+GEMINI_MODEL = os.getenv("VULNTRIAGE_GEMINI_MODEL", "gemini-3.5-flash-lite")
 GROQ_MODEL = os.getenv("VULNTRIAGE_GROQ_MODEL", "openai/gpt-oss-20b")
 OLLAMA_MODEL = os.getenv("VULNTRIAGE_OLLAMA_MODEL", "qwen2.5:14b")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")

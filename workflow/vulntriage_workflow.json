@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-21T06:37:56.959Z",
+  "updatedAt": "2026-11-21T06:50:25.061Z",
   "createdAt": "2026-11-21T06:14:21.699Z",
   "id": "VulnTriageAI0001",
   "name": "VulnTriage-AI",
@@ -331,7 +331,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $env.VULNTRIAGE_GEMINI_MODEL || 'gemini-3.5-flash' }}:generateContent",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $env.VULNTRIAGE_GEMINI_MODEL || 'gemini-3.5-flash-lite' }}:generateContent",
         "options": {
           "timeout": 90000
         },
@@ -382,7 +382,7 @@
         "jsonBody": "={{ JSON.stringify({ model: $env.VULNTRIAGE_GROQ_MODEL || 'openai/gpt-oss-20b', temperature: 0.1, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: $('Build LLM prompt').first().json.system }, { role: 'user', content: $('Build LLM prompt').first().json.user }] }) }}"
       },
       "retryOnFail": true,
-      "maxTries": 2,
+      "maxTries": 3,
       "waitBetweenTries": 5000,
       "onError": "continueRegularOutput"
     },
@@ -795,9 +795,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "3dba1c30-6be8-4aa5-8bc4-74c37fa2d2d3",
-  "activeVersionId": "3dba1c30-6be8-4aa5-8bc4-74c37fa2d2d3",
-  "versionCounter": 3,
+  "versionId": "aade593a-b0e4-4567-a846-55a9336dd503",
+  "activeVersionId": "aade593a-b0e4-4567-a846-55a9336dd503",
+  "versionCounter": 6,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],

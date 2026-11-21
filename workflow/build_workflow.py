@@ -301,13 +301,13 @@ def build() -> dict:
         code("Build LLM prompt", PROMPT_JS, (960, 500)),
         http("Gemini summarize", (1200, 500),
              "=https://generativelanguage.googleapis.com/v1beta/models/"
-             "{{ $env.VULNTRIAGE_GEMINI_MODEL || 'gemini-3.5-flash' }}:generateContent",
+             "{{ $env.VULNTRIAGE_GEMINI_MODEL || 'gemini-3.5-flash-lite' }}:generateContent",
              method="POST", headers=[("x-goog-api-key", "={{ $env.GOOGLE_API_KEY }}")],
              json_body=GEMINI_BODY, timeout=90000, retryOnFail=True, maxTries=2,
              waitBetweenTries=5000, onError="continueErrorOutput"),
         http("Groq fallback", (1440, 700), "https://api.groq.com/openai/v1/chat/completions",
              method="POST", headers=[("Authorization", "=Bearer {{ $env.GROQ_API_KEY }}")],
-             json_body=GROQ_BODY, timeout=90000, retryOnFail=True, maxTries=2,
+             json_body=GROQ_BODY, timeout=90000, retryOnFail=True, maxTries=3,
              waitBetweenTries=5000, onError="continueRegularOutput"),
         code("Parse LLM output", PARSE_LLM_JS, (1680, 500)),
         node("Log findings to Postgres", "n8n-nodes-base.postgres", 2.5, (0, 1000), {

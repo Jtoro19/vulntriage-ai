@@ -57,3 +57,4 @@ packages = ["vulntriage", "langchain_agent", "fuzzy"]
 [tool.ruff.lint.per-file-ignores]
 # Embedded n8n JavaScript strings are kept readable rather than wrapped.
 "workflow/build_workflow.py" = ["E501"]
+"docs/make_architecture.py" = ["E501"]
