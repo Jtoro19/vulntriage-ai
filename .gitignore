@@ -1,0 +1,35 @@
+# Secrets and private material
+.env
+_private/
+_checklists/
+
+# Local agent instructions (never committed)
+BRIEF.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.envrc
+.mcp.json
+.claude/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Caches and generated indexes
+.cache/
+data/cache/
+rag/index/
+langchain_agent/index/
+
+# Docker volumes and runtime state
+volumes/
+n8n_data/
+postgres_data/
+
+# Local tooling
+.atl/
