@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T07:45:49+00:00",
+  "generated_at": "2026-11-21T08:04:37+00:00",
   "source": "host inventory (lab)",
   "network": "vulntriage-lab_lab",
   "entries": {
@@ -225,7 +225,10 @@
       "name": "Customer portal (Spring WebMVC, Java)",
       "zone": "internet",
       "exposure": 9.0,
-      "criticality": 9.0
+      "criticality": 9.0,
+      "software_product": "Spring Framework",
+      "software_version": "5.3.17",
+      "software_cpe23": "cpe:2.3:a:vmware:spring_framework:5.3.17:*:*:*:*:*:*:*"
     },
     "lab-host-19:5005": {
       "ip": "172.30.0.19",
@@ -257,7 +260,10 @@
       "name": "Product search (Apache Solr, Java)",
       "zone": "internal",
       "exposure": 2.0,
-      "criticality": 6.0
+      "criticality": 6.0,
+      "software_product": "Apache Solr",
+      "software_version": "8.11.0",
+      "software_cpe23": "cpe:2.3:a:apache:solr:8.11.0:*:*:*:*:*:*:*"
     },
     "lab-host-20:5000": {
       "ip": "172.30.0.20",

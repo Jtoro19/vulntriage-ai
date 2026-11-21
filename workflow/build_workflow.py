@@ -92,6 +92,14 @@ for (const f of findings) {
   f.process = inv ? (inv.command || '').slice(0, 80) : null;
   f.asset_name = inv ? inv.name : null;   // simulated role from lab/assets.yaml
   f.zone = inv ? inv.zone : null;
+  // Version known only from the host side (authenticated view): used when Nmap has no CPE.
+  f.version_source = 'network scan';
+  if (!f.cpe23 && f.cves.length === 0 && inv && inv.software_cpe23) {
+    f.cpe23 = inv.software_cpe23;
+    f.product = inv.software_product;
+    f.version = `${inv.software_version} (host inventory)`;
+    f.version_source = 'host inventory (lab)';
+  }
 }
 // Keep only findings that can be linked to CVEs (direct ids or a versioned CPE).
 const usable = findings.filter((f) => f.cves.length > 0 || f.cpe23);
@@ -322,8 +330,8 @@ PDF_BODY = (
     "={{ JSON.stringify({ report: $('Receive scan report').first().json.body.report, "
     "asset: $('Aggregate run').first().json.asset, "
     "run_id: 'n8n_pdf_' + $('Aggregate run').first().json.run_id.replace(/[^A-Za-z0-9_-]/g, ''), "
-    "exposure: $('Receive scan report').first().json.body.exposure || 8, "
-    "criticality: $('Receive scan report').first().json.body.criticality || 7 }) }}"
+    "exposure: $('Receive scan report').first().json.body.exposure, "
+    "criticality: $('Receive scan report').first().json.body.criticality }) }}"
 )
 TELEGRAM_BODY = (
     "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID, text: $json.message, "

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -14,8 +15,9 @@ from langgraph.prebuilt import create_react_agent
 from langchain_agent import tools as tools_mod
 from langchain_agent.llm import TraceCallback, get_llm, get_structured_llm, provider_chain
 from langchain_agent.prompts import FORMAT_SYSTEM, prompt
-from langchain_agent.schemas import Finding, FiredRule, Report
+from langchain_agent.schemas import Finding, FiredRule, Report, dedupe_refs, rank_key
 from vulntriage import intel
+from vulntriage.assets import asset_for, scenario
 from vulntriage.inventory import load_inventory
 from vulntriage.inventory import lookup as inventory_lookup
 from vulntriage.parsers import parse_report
@@ -27,7 +29,8 @@ RECURSION_LIMIT = 30
 
 
 PER_SERVICE = 3     # top CVEs per service by CVSS (same rule as the n8n workflow)
-MAX_FINDINGS = 12   # cap per run to bound LLM calls
+MAX_FINDINGS = 16   # cap per run to bound LLM calls
+INVENTORY_SOURCE = "host inventory (lab)"
 
 
 def _cpe23(row: dict) -> str | None:
@@ -37,26 +40,63 @@ def _cpe23(row: dict) -> str | None:
     return next((c23 for c in row.get("cpe") or [] if (c23 := intel.cpe22_to_23(c))), None)
 
 
+def _service_cpe(row: dict) -> tuple[str | None, str, dict | None]:
+    """(cpe23, version source, host-side software). The network scan wins; when it gives no
+    usable CPE, the host inventory software for that port is used (labelled as such)."""
+    cpe23 = _cpe23(row)
+    if cpe23:
+        return cpe23, "network scan", None
+    sw = asset_for(row.get("host")).get("software")
+    if sw and sw.get("cpe23") and int(sw.get("port", -1)) == row.get("port"):
+        return sw["cpe23"], INVENTORY_SOURCE, sw
+    return None, "network scan", None
+
+
+def top_cves(recs: list[dict], n: int) -> list[dict]:
+    """Top n by CVSS; CVSS ties are broken by KEV first, then EPSS, so KEV CVEs are kept."""
+    recs = sorted(recs, key=lambda r: -(r.get("cvss_score") or 0))
+    if len(recs) <= n:
+        return recs
+    floor = recs[n - 1].get("cvss_score") or 0
+    pool = [r for r in recs if (r.get("cvss_score") or 0) >= floor]
+    ids = [r["cve_id"] for r in pool]
+    try:
+        epss = intel.epss_scores(ids)
+    except Exception:
+        epss = {}
+    kev = set()
+    for cid in ids:
+        try:
+            if intel.kev_entry(cid):
+                kev.add(cid)
+        except Exception:
+            pass
+    pool.sort(key=lambda r: (-(r.get("cvss_score") or 0), r["cve_id"] not in kev,
+                             -(epss.get(r["cve_id"], {}).get("epss") or 0)))
+    return pool[:n]
+
+
 def select_candidates(rows: list[dict], per_service: int = PER_SERVICE,
                       cap: int = MAX_FINDINGS) -> list[dict]:
-    """Deterministic candidate CVEs: top `per_service` by CVSS for each service, then capped
-    round-robin by rank so that every service keeps its worst CVE before any gets a third."""
+    """Deterministic candidate CVEs: top `per_service` per service (CVSS, then KEV, then EPSS),
+    capped round-robin by rank so every service keeps its worst CVE before any gets a third."""
     per_row: list[list[dict]] = []
     for row in rows:
         recs: list[dict] = []
+        cpe23, source, sw = _service_cpe(row)
         try:
             if row.get("cves"):
                 recs = [r for c in row["cves"][:per_service] if (r := intel.nvd_cve(c))]
-            elif (cpe23 := _cpe23(row)):
-                recs = intel.nvd_cves_for_cpe(cpe23, limit=per_service)
+            elif cpe23:
+                recs = top_cves(intel.nvd_cves_for_cpe(cpe23, limit=200), per_service)
         except Exception:  # NVD unavailable: the service is still reported, without CVEs
             recs = []
         cands = []
         for rec in recs:
             tools_mod._nvd_row(rec)  # records CVSS and CWEs as tool evidence
             cands.append({"cve": rec["cve_id"], "cvss": rec.get("cvss_score"),
-                          "cwes": rec.get("cwes") or [], "row": row,
-                          "desc": tools_mod._short(rec.get("description"), 110)})
+                          "cwes": rec.get("cwes") or [], "row": row, "version_source": source,
+                          "software": sw, "desc": tools_mod._short(rec.get("description"), 110)})
         per_row.append(cands)
     picked: list[dict] = []
     for rank in range(per_service):
@@ -74,6 +114,10 @@ def compact_findings(rows: list[dict], candidates: list[dict] | None = None) -> 
         lines.append(f"{i}. {r['host']}:{r['port']}/{r['protocol']} service={r['service']} "
                      f"product={r['product']} version={r['version']}")
         mine = [c for c in candidates if c["row"] is r]
+        if mine and mine[0].get("software"):
+            sw = mine[0]["software"]
+            lines[-1] += (f" (host inventory: {sw['product']} {sw['version']}, "
+                          "version not detectable from the network)")
         for c in mine:
             lines.append(f"   - {c['cve']} CVSS {c['cvss']} {','.join(c['cwes']) or 'no CWE'}: "
                          f"{c['desc']}")
@@ -132,14 +176,15 @@ def ground_report(report: Report) -> Report:
             pr = ev.priority[cve]
             f.priority, f.label = pr["priority"], pr["label"]
             f.fired_rules = [FiredRule(**r) for r in pr["fired_rules"]]
-    report.findings.sort(key=lambda f: -(f.priority if f.priority is not None else -1))
+    report.findings.sort(key=rank_key)
     return report
 
 
 def enrich_findings(report: Report, candidates: list[dict], inventory: dict) -> Report:
     """Deterministic enrichment (never the LLM): host, port, PID, service, version, CWEs, and
     OWASP/CWE citations. Findings whose CVE is missing or not a listed candidate are dropped."""
-    by_cve = {c["cve"]: c["row"] for c in candidates}
+    by_cand = {c["cve"]: c for c in candidates}
+    by_cve = {k: c["row"] for k, c in by_cand.items()}
     first_row = candidates[0]["row"] if candidates else None
     kept = []
     for f in report.findings:
@@ -155,6 +200,17 @@ def enrich_findings(report: Report, candidates: list[dict], inventory: dict) -> 
             f.pid_source = entry["source"] if entry else None
             f.service = row.get("product") or row.get("service")
             f.version = row.get("version")
+            cand = by_cand.get(cve) or {}
+            f.version_source = cand.get("version_source", "network scan")
+            if cand.get("software"):  # version known only from the host side
+                f.service, f.version = cand["software"]["product"], cand["software"]["version"]
+            asset = asset_for(row["host"])
+            f.asset_name, f.zone = asset["name"], asset["zone"]
+            if not f.version and f.service in (None, "http", "https", "tcp"):
+                # Nuclei-only finding: no product banner, name the service by its lab role
+                f.service = f"{asset['name']} ({f.service or 'tcp'})"
+            f.exposure = cand.get("exposure", asset["exposure"])
+            f.criticality = cand.get("criticality", asset["criticality"])
         f.cwes = tools_mod.EVIDENCE.cves.get(cve, {}).get("cwes") or f.cwes
         _cite(f)
         kept.append(f)
@@ -171,7 +227,7 @@ def _cite(f: Finding) -> None:
                  if k.get("source") == "OWASP WSTG" and k.get("url")), None)
     if wstg:
         refs.append(f"OWASP WSTG {wstg['title']}: {wstg['url']}")
-    f.references = list(dict.fromkeys(refs))
+    f.references = dedupe_refs(refs)
     if not re.search(r"CWE-\d+|WSTG|OWASP", f.remediation):
         cited = ", ".join(f.cwes) or (f"OWASP WSTG {wstg['title']}" if wstg else "")
         if cited:
@@ -191,41 +247,79 @@ def alert_dicts(report: Report) -> list[dict]:
             "service": f.service, "version": f.version, "cve_id": f.cve or "CVE n/a",
             "cvss": f.cvss, "epss": f.epss, "in_kev": f.in_kev, "cwes": f.cwes,
             "attack": f.attack_technique, "priority": f.priority, "priority_label": f.label,
-            "remediation": " ".join(f.remediation.split())[:420], "references": f.references})
+            "remediation": " ".join(f.remediation.split())[:420], "references": f.references,
+            "asset_name": f.asset_name, "zone": f.zone, "exposure": f.exposure,
+            "criticality": f.criticality, "version_source": f.version_source})
     return out
 
 
-def fill_gaps(candidates: list[dict], exposure: float, criticality: float) -> list[dict]:
+def fill_gaps(candidates: list[dict]) -> list[dict]:
     """Safety net: run the same tools in code for any candidate the agent skipped, so no finding
-    lacks EPSS, KEV or a fuzzy priority. The calls are added to the trace as gap fill steps."""
+    lacks EPSS or KEV. The calls are added to the trace as gap fill steps."""
     ev, steps = tools_mod.EVIDENCE, []
-
-    def call(tool, args):
-        name = f"{tool.name} (gap fill)"
-        steps.append({"type": "action", "tool": name, "args": args})
-        steps.append({"type": "observation", "tool": name, "text": tool.invoke(args)})
-
     for c in candidates:
-        cve = c["cve"]
-        known = ev.cves.get(cve, {})
-        if "epss" not in known:
-            call(tools_mod.query_epss, {"cve_id": cve})
-        if "in_kev" not in known:
-            call(tools_mod.is_in_kev, {"cve_id": cve})
-        known = ev.cves.get(cve, {})
-        if cve not in ev.priority and known.get("cvss") is not None and "epss" in known:
-            call(tools_mod.prioritize_risk, {"cvss": known["cvss"], "epss": known["epss"],
-                                             "exposure": exposure, "criticality": criticality,
-                                             "cve_id": cve})
+        known = ev.cves.get(c["cve"], {})
+        for key, tool in (("epss", tools_mod.query_epss), ("in_kev", tools_mod.is_in_kev)):
+            if key not in known:
+                name = f"{tool.name} (gap fill)"
+                steps.append({"type": "action", "tool": name, "args": {"cve_id": c["cve"]}})
+                steps.append({"type": "observation", "tool": name,
+                              "text": tool.invoke({"cve_id": c["cve"]})})
     return steps
 
 
-def _run_host(rows: list[dict], candidates: list[dict], asset: str, exposure: float,
-              criticality: float, provider: str | None, cb: TraceCallback) -> dict:
+def apply_priority(candidates: list[dict], exposure: float | None = None,
+                   criticality: float | None = None) -> list[dict]:
+    """Fuzzy priority computed in code for every candidate with the host's own exposure and
+    criticality (asset inventory unless overridden), replacing any value the model requested.
+    This keeps the fired rules consistent with the simulated scenario."""
+    ev, steps = tools_mod.EVIDENCE, []
+    for c in candidates:
+        asset = asset_for(c["row"]["host"])
+        c["exposure"] = asset["exposure"] if exposure is None else exposure
+        c["criticality"] = asset["criticality"] if criticality is None else criticality
+        known = ev.cves.get(c["cve"], {})
+        if known.get("cvss") is None or "epss" not in known:
+            continue
+        ev.priority.pop(c["cve"], None)
+        args = {"cvss": known["cvss"], "epss": known["epss"], "exposure": c["exposure"],
+                "criticality": c["criticality"], "cve_id": c["cve"]}
+        steps.append({"type": "action", "tool": "prioritize_risk (code)", "args": args})
+        steps.append({"type": "observation", "tool": "prioritize_risk (code)",
+                      "text": tools_mod.prioritize_risk.invoke(args)})
+    return steps
+
+
+def build_summary(findings: list[Finding], hosts: int) -> str:
+    """One clean executive summary built in code from the final findings."""
+    n = len(findings)
+    if not n:
+        return "No candidate vulnerabilities were found in the scanned services."
+    bands = Counter("Critical" if (f.cvss or 0) >= 9 else "High" if (f.cvss or 0) >= 7
+                    else "Medium" if (f.cvss or 0) >= 4 else "Low" for f in findings)
+    kev = sum(1 for f in findings if f.in_kev)
+    sev = ", ".join(f"{bands[b]} {b.lower()}" for b in ("Critical", "High", "Medium", "Low")
+                    if bands[b])
+    top = "; ".join(
+        f"{f.cve} on {f.asset_name or f.host_ip} ({f.host_ip}:{f.port}, priority "
+        f"{f.priority:.1f} {f.label})" for f in findings[:3] if f.priority is not None)
+    text = (f"{n} findings across {hosts} hosts ({sev} by CVSS band); {kev} are listed in the "
+            f"CISA KEV catalog. Findings are ranked by fuzzy priority using each asset's "
+            f"simulated exposure and criticality. ")
+    if top:
+        text += f"Top 3 by priority: {top}. "
+    return text + f"Scenario: {scenario()}"
+
+
+def _run_host(rows: list[dict], candidates: list[dict], asset: str, exposure: float | None,
+              criticality: float | None, provider: str | None, cb: TraceCallback) -> dict:
     """ReAct loop plus structured formatting for the services of one host."""
     cfg = {"callbacks": [cb], "recursion_limit": RECURSION_LIMIT}
-    msgs = prompt.format_messages(asset_context=asset_context(asset, exposure, criticality),
-                                  findings=compact_findings(rows, candidates))
+    info = asset_for(rows[0]["host"])
+    exp = info["exposure"] if exposure is None else exposure
+    crit = info["criticality"] if criticality is None else criticality
+    ctx = asset_context(f"{info['name']} (zone {info['zone']}), part of {asset}", exp, crit)
+    msgs = prompt.format_messages(asset_context=ctx, findings=compact_findings(rows, candidates))
     t0 = time.perf_counter()
     try:
         messages = build_agent(provider).invoke({"messages": msgs}, cfg)["messages"]
@@ -233,7 +327,8 @@ def _run_host(rows: list[dict], candidates: list[dict], asset: str, exposure: fl
     except Exception as exc:  # e.g. every provider rate limited: keep the partial trace
         messages, error = [], f"{type(exc).__name__}: {str(exc)[:300]}"
     t_agent = time.perf_counter() - t0
-    steps = steps_from_messages(messages) + fill_gaps(candidates, exposure, criticality)
+    steps = steps_from_messages(messages) + fill_gaps(candidates)
+    steps += apply_priority(candidates, exposure, criticality)
     report, t1 = None, time.perf_counter()
     try:
         if error:
@@ -253,11 +348,15 @@ def _run_host(rows: list[dict], candidates: list[dict], asset: str, exposure: fl
             "t_agent": t_agent, "t_format": time.perf_counter() - t1}
 
 
-def run_agent(scans: list[Path], asset: str, exposure: float, criticality: float,
+def run_agent(scans: list[Path], asset: str, exposure: float | None = None,
+              criticality: float | None = None,
               provider: str | None = None, inventory: dict | None = None) -> dict:
     """Triage one or more scans (one ReAct run per host). Returns report (or None) and trace."""
     inventory = load_inventory() if inventory is None else inventory
     rows = [r for scan in scans for r in parse_report(Path(scan).read_text())]
+    for r in rows:  # one canonical name per lab host (nmap says lab-host-N, nuclei an IP)
+        if m := re.search(r"(?:lab-host-|172\.30\.0\.)(\d+)$", str(r["host"])):
+            r["host"] = f"lab-host-{m.group(1)}"
     tools_mod.reset_evidence()
     candidates = select_candidates(rows)
     cb = TraceCallback()
@@ -278,14 +377,16 @@ def run_agent(scans: list[Path], asset: str, exposure: float, criticality: float
             reports.append((host, enrich_findings(res["report"], host_cands, inventory)))
     report = None
     if reports:
-        findings = sorted((f for _, r in reports for f in r.findings),
-                          key=lambda f: -(f.priority if f.priority is not None else -1))
-        summary = " ".join(f"[{h}] {r.executive_summary}" for h, r in reports)
-        report = Report(asset=asset, executive_summary=summary, findings=findings)
+        findings = sorted((f for _, r in reports for f in r.findings), key=rank_key)
+        report = Report(asset=asset, executive_summary=build_summary(findings, len(hosts)),
+                        findings=findings)
     trace = {
         "created": datetime.now(UTC).isoformat(timespec="seconds"),
         "scans": [str(s) for s in scans], "asset": asset, "exposure": exposure,
-        "criticality": criticality, "hosts": hosts, "candidates": len(candidates),
+        "criticality": criticality, "scenario": scenario(),
+        "assets": [{"host": h, **{k: asset_for(h)[k] for k in
+                                  ("name", "zone", "exposure", "criticality")}} for h in hosts],
+        "hosts": hosts, "candidates": len(candidates),
         "provider_chain": provider_chain(provider),
         "llm": cb.summary(), "llm_calls": cb.calls, "llm_errors": cb.errors,
         "latency_s": {"agent": round(t_agent, 1), "format": round(t_format, 1),
@@ -302,6 +403,12 @@ def _fmt(v, nd=2):
     return "n/a" if v is None else (f"{v:.{nd}f}" if isinstance(v, float) else str(v))
 
 
+def fmt_rule(r: FiredRule) -> str:
+    """Fired rule with its activation degree, e.g. 'R1 (0.82): IF cvss is critical ...'."""
+    act = f" ({r.activation:.2f})" if r.activation is not None else ""
+    return f"{r.id}{act}: {r.text}"
+
+
 def render_report_md(report: Report, trace: dict, run_id: str) -> str:
     llm = trace["llm"]
     out = [f"# Pentest report draft: {report.asset}", "",
@@ -309,24 +416,31 @@ def render_report_md(report: Report, trace: dict, run_id: str) -> str:
            f"{', '.join(llm['providers_answered']) or 'n/a'}. "
            f"Total latency {trace['latency_s']['total']} s. Draft for analyst review; "
            "authorized assets only.", "",
-           "## Executive summary", "", report.executive_summary, "",
+           "## Executive summary", "", report.executive_summary, ""]
+    if trace.get("assets"):
+        out += ["## Assets in this run (simulated scenario)", "",
+                "| Host | Asset | Zone | Exposure | Criticality |", "|---|---|---|---|---|"]
+        out += [f"| {x['host']} | {x['name']} | {x['zone']} | {x['exposure']:g} "
+                f"| {x['criticality']:g} |" for x in trace["assets"]]
+        out.append("")
+    out += [
            "## Findings (ordered by fuzzy priority)", "",
-           "| # | Host:port | PID | Service | CVE | CVSS | EPSS | KEV | Priority | Label |",
-           "|---|---|---|---|---|---|---|---|---|---|"]
+           "| # | Host:port | Asset | PID | Service | CVE | CVSS | EPSS | KEV | Priority | Label |",
+           "|---|---|---|---|---|---|---|---|---|---|---|"]
     for i, f in enumerate(report.findings, 1):
         svc = " ".join(x for x in (f.service, f.version) if x) or "n/a"
-        out.append(f"| {i} | {f.host_ip or 'n/a'}:{f.port or ''} | {f.pid or 'n/a'} | {svc} "
+        out.append(f"| {i} | {f.host_ip or 'n/a'}:{f.port or ''} | {f.asset_name or 'n/a'} "
+                   f"| {f.pid or 'n/a'} | {svc} "
                    f"| {f.cve or 'n/a'} | {_fmt(f.cvss, 1)} | {_fmt(f.epss, 3)} "
                    f"| {'yes' if f.in_kev else 'no' if f.in_kev is False else 'n/a'} "
                    f"| {_fmt(f.priority, 1)} | {f.label or 'n/a'} |")
     for i, f in enumerate(report.findings, 1):
         out += ["", f"## Finding {i}: {f.title}", "", f"- Evidence: {f.evidence}",
                 f"- PID: {f.pid or 'not found'} ({f.pid_source or 'no inventory entry'})",
+                f"- Version source: {f.version_source or 'network scan'}",
                 f"- CWE: {', '.join(f.cwes) or 'n/a'}",
                 f"- ATT&CK: {f.attack_technique or 'n/a'}", "- Fuzzy rules fired:"]
-        out += [f"  - {r.id}: {r.text}" + (f" (activation {r.activation:.2f})"
-                                           if r.activation is not None else "")
-                for r in f.fired_rules] or ["  - none recorded"]
+        out += [f"  - {fmt_rule(r)}" for r in f.fired_rules] or ["  - none recorded"]
         out += ["", f"Remediation: {f.remediation}"]
         if f.references:
             out += ["", "References:"] + [f"- {r}" for r in f.references]

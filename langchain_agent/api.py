@@ -1,7 +1,8 @@
 """Minimal local HTTP bridge so the n8n workflow can trigger the LangChain pipeline.
 
 POST /triage with JSON {"report": "<nmap xml or nuclei jsonl>", "asset": "...",
-"exposure": 8, "criticality": 7, "run_id": "..."} runs the agent on the report,
+"run_id": "..."} (optional "exposure"/"criticality" overrides; by default each host uses
+lab/assets.yaml) runs the agent on the report,
 writes reports/<run_id>.md|json|pdf and sends the PDF to Telegram as a document.
 It returns {"run_id", "findings", "pdf", "telegram_message_id"}.
 
@@ -56,8 +57,10 @@ class Handler(BaseHTTPRequestHandler):
         with tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False) as tmp:
             tmp.write(report)
         argv = ["--scan", tmp.name, "--asset", str(data.get("asset") or "lab"),
-                "--exposure", str(data.get("exposure", 8)),
-                "--criticality", str(data.get("criticality", 7)), "--run-id", run_id]
+                "--run-id", run_id]
+        for key in ("exposure", "criticality"):  # optional overrides; default is lab/assets.yaml
+            if data.get(key) is not None:
+                argv += [f"--{key}", str(data[key])]
         try:
             code = agent_run.main(argv)
         finally:

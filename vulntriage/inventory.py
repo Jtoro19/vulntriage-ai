@@ -127,6 +127,9 @@ def build_inventory(network: str = LAB_NETWORK) -> dict:
                 "user": proc.get("user"), "command": proc.get("command"),
                 "source": SOURCE_LABEL,
                 **{k: asset.get(k) for k in ("name", "zone", "exposure", "criticality")},
+                # software version known from the host side (lab/assets.yaml), if any
+                **({f"software_{k}": sw.get(k) for k in ("product", "version", "cpe23")}
+                   if (sw := asset.get("software") or {}).get("port") == port else {}),
             }
     return {"generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "source": SOURCE_LABEL, "network": network, "entries": entries}

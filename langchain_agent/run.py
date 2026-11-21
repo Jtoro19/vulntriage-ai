@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from langchain_agent.agent import alert_dicts, render_report_md, render_trace_md, run_agent
-from langchain_agent.pdf_report import build_pdf
+from langchain_agent.pdf_report import build_pdf, normalize_obj
 from vulntriage import config
 from vulntriage.text import normalize
 
@@ -38,8 +38,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--scan", required=True, type=Path, action="append",
                     help="scan file; repeat the flag to triage several hosts in one run")
     ap.add_argument("--asset", required=True)
-    ap.add_argument("--exposure", type=float, default=5)
-    ap.add_argument("--criticality", type=float, default=5)
+    ap.add_argument("--exposure", type=float, default=None,
+                    help="override exposure 0-10 for every host (default: lab/assets.yaml)")
+    ap.add_argument("--criticality", type=float, default=None,
+                    help="override criticality 0-10 for every host (default: lab/assets.yaml)")
     ap.add_argument("--provider", help="gemini | groq | ollama (default: env or gemini)")
     ap.add_argument("--run-id")
     ap.add_argument("--notify", action="store_true",
@@ -55,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     TRACE_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     (TRACE_DIR / f"{run_id}.json").write_text(
-        normalize(json.dumps(trace, indent=2, ensure_ascii=False)))
+        json.dumps(normalize_obj(trace), indent=2, ensure_ascii=False))
     (TRACE_DIR / f"{run_id}.md").write_text(normalize(render_trace_md(trace, run_id)))
     print(f"trace:  langchain_agent/traces/{run_id}.md  latency={trace['latency_s']}")
     if report is None:
@@ -63,10 +65,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     meta = {"run_id": run_id, "created": trace["created"], "provider": provider,
             "models": trace["llm"]["providers_answered"], "latency_s": trace["latency_s"],
-            "hosts": trace["hosts"], "scans": trace["scans"]}
+            "hosts": trace["hosts"], "scans": trace["scans"],
+            "scenario": trace["scenario"], "assets": trace["assets"],
+            "overrides": {"exposure": args.exposure, "criticality": args.criticality}}
     saved = {**report.model_dump(), "meta": meta}
     (REPORT_DIR / f"{run_id}.json").write_text(
-        normalize(json.dumps(saved, indent=2, ensure_ascii=False)))
+        json.dumps(normalize_obj(saved), indent=2, ensure_ascii=False))
     pdf = build_pdf(saved, REPORT_DIR / f"{run_id}.pdf")
     print(f"pdf:    {pdf.relative_to(config.ROOT)}")
     (REPORT_DIR / f"{run_id}.md").write_text(normalize(render_report_md(report, trace, run_id)))
@@ -76,7 +80,8 @@ def main(argv: list[str] | None = None) -> int:
 
         critical = alert_dicts(report)
         if critical:
-            ids = send_telegram(format_alert(critical, report.asset, run_id, "LangChain agent"))
+            ids = send_telegram([normalize(m) for m in format_alert(
+                critical, report.asset, run_id, "LangChain agent")])
             print(f"telegram message ids: {ids}")
         else:
             print("no critical findings: no alert sent")

@@ -55,7 +55,7 @@ uv run python -m langchain_agent.pdf_report reports/<run_id>.json   # rebuild th
 ```
 
 - `--scan` can be repeated. Candidate CVEs are chosen in code: top 3 per service by CVSS (same rule as the
-  n8n workflow), capped at 12 per run (round-robin by rank, so every service keeps its worst CVE first).
+  n8n workflow), capped at 16 per run (round-robin by rank, so every service keeps its worst CVE first).
   One ReAct run is made per host. Tool calls are requested in parallel to keep LLM calls low. Any candidate
   the agent skipped gets EPSS, KEV and fuzzy priority from the same tools run in code; those steps are marked
   `(gap fill)` in the trace.
@@ -87,6 +87,31 @@ uv run python -m langchain_agent.pdf_report reports/<run_id>.json   # rebuild th
   table (host IP:port, PID, service, CVE info, recommendation), fuzzy ranking, four charts (severity by
   CVSS band, CVSS vs EPSS by KEV, priority ranking, findings per host), recommendations, and a sources
   appendix. The JSON in `reports/` carries a `meta` block (run id, models, latency) used by the PDF.
+
+### Asset-based prioritization, version source and ranking
+
+- Exposure and criticality come from the asset inventory (`lab/assets.yaml`, `vulntriage.assets.asset_for`)
+  per host, not from one global value. `--exposure` and `--criticality` are optional overrides (default:
+  use the inventory). The fuzzy priority is computed in code with each host's own values (replacing any value
+  the model asked for), so an internal asset never fires an "exposure is internet" rule. Every finding carries
+  `asset_name`, `zone`, `exposure`, `criticality` and `version_source`. The PDF scope section states the
+  simulated scenario text and a table of the assets in the run.
+- Version source: the network scan wins. If it gives no usable `cpe23` and the asset has host-side software
+  with a CPE for that port, that CPE selects the candidate CVEs and the finding is labelled
+  `version_source: "host inventory (lab)"` (marked `*` in the PDF). Example: lab-host-18 (Spring Framework
+  5.3.17) yields CVE-2022-22965. Solr on lab-host-19 does not get Log4Shell, because NVD attaches it to
+  log4j and not to Solr; this limitation is not worked around.
+- CVSS ties among a service's CVEs are broken by KEV first, then EPSS, so KEV CVEs are not dropped.
+- Final ranking tie-break: fuzzy priority, then EPSS, then CVSS, then KEV (all descending).
+- The executive summary is built in code (counts by CVSS band, KEV count, top 3 by priority, scenario).
+- Every fired fuzzy rule is shown with its activation degree, for example `R1 (0.82): IF cvss is critical
+  AND epss is high THEN priority is urgent`, in the markdown report and in PDF section 5.
+- PDF layout: the findings table is compact (`#`, host:port, PID, service and version, short CVE info, and
+  "See rec. #N"); full recommendations with OWASP/CWE citations and fuzzy reasoning are in section 5, numbered
+  to match. Charts are adaptive: with fewer than 3 points or a single category a sentence or small table
+  replaces the chart. The CVSS vs EPSS scatter annotates CVE ids and jitters overlapping points.
+- `langchain_agent/api.py` keeps working: exposure and criticality in the request body are now optional
+  overrides.
 
 ## Committed examples (which model produced each)
 

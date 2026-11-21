@@ -1,0 +1,809 @@
+{
+  "asset": "VulnTriage isolated lab (simulated ACME Retail)",
+  "executive_summary": "16 findings across 11 hosts (11 critical, 1 high, 4 medium by CVSS band); 6 are listed in the CISA KEV catalog. Findings are ranked by fuzzy priority using each asset's simulated exposure and criticality. Top 3 by priority: CVE-2021-41773 on Public website (Apache httpd) (172.30.0.12:80, priority 88.3 urgent); CVE-2021-42013 on Public website (Apache httpd) (172.30.0.12:80, priority 88.3 urgent); CVE-2025-24813 on Partner portal (Tomcat) (172.30.0.13:8080, priority 88.3 urgent). Scenario: Simulated ACME Retail environment: public website, online shop, customer portal and public API are internet-facing; the corporate CMS, a partner portal and a staging app sit in the DMZ; CI, logging, search and file sharing are internal only. In reality all containers are isolated on a local Docker network without internet access.",
+  "findings": [
+    {
+      "host_ip": "172.30.0.12",
+      "port": 80,
+      "pid": 184072,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.49",
+      "cwes": [
+        "CWE-22"
+      ],
+      "asset_name": "Public website (Apache httpd)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 6.0,
+      "version_source": "network scan",
+      "title": "Apache HTTP Server Path Traversal and RCE",
+      "evidence": "lab-host-12:80/tcp running Apache httpd 2.4.49",
+      "cve": "CVE-2021-41773",
+      "cvss": 9.8,
+      "epss": 0.99992,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1083 (File and Directory Discovery) / T1574 (Path Interception / Execution)",
+      "remediation": "Upgrade Apache HTTP Server to version 2.4.51 or later, or properly configure Require all denied on directory blocks and ensure Alias directives are tightly scoped. Sources: MITRE CWE: CWE-22 Improper Limitation of a Pathname to a Restricted Directory (https://cwe.mitre.org/data/definitions/22.html); OWASP Web Security Testing Guide (WSTG) / CWE Catalog: Inputs should be decoded and canonicalized to the application's internal representation before validation. Use vetted libraries or frameworks that do not allow path traversal constructs.",
+      "references": [
+        "CWE-22: https://cwe.mitre.org/data/definitions/22.html",
+        "https://attack.mitre.org/techniques/T1083"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.12",
+      "port": 80,
+      "pid": 184072,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.49",
+      "cwes": [
+        "CWE-22"
+      ],
+      "asset_name": "Public website (Apache httpd)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 6.0,
+      "version_source": "network scan",
+      "title": "Apache HTTP Server Insufficient Fix Path Traversal and RCE",
+      "evidence": "lab-host-12:80/tcp running Apache httpd 2.4.49 (vulnerable to the related follow-on issue affecting 2.4.49/2.4.50)",
+      "cve": "CVE-2021-42013",
+      "cvss": 9.8,
+      "epss": 0.99964,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1083 (File and Directory Discovery) / T1574 (Path Interception / Execution)",
+      "remediation": "Upgrade Apache HTTP Server to version 2.4.51 or later to address incomplete fixes for path normalization and URL-encoding bypasses. Ensure mod_alias and directory access controls are strictly enforced. Sources: MITRE CWE: CWE-22 Improper Limitation of a Pathname to a Restricted Directory (https://cwe.mitre.org/data/definitions/22.html); OWASP Web Security Testing Guide (WSTG) / CWE Catalog: Ensure that application input validation canonicalizes paths correctly and avoids double-decoding flaws.",
+      "references": [
+        "CWE-22: https://cwe.mitre.org/data/definitions/22.html",
+        "https://attack.mitre.org/techniques/T1083"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.13",
+      "port": 8080,
+      "pid": 183583,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache Tomcat",
+      "version": "8.5.19",
+      "cwes": [
+        "CWE-44",
+        "CWE-502",
+        "CWE-706"
+      ],
+      "asset_name": "Partner portal (Tomcat)",
+      "zone": "dmz",
+      "exposure": 6.0,
+      "criticality": 7.0,
+      "version_source": "network scan",
+      "title": "Apache Tomcat 8.5.19 CVE-2025-24813",
+      "evidence": "Apache Tomcat 8.5.19 exposed on port 8080.",
+      "cve": "CVE-2025-24813",
+      "cvss": 9.8,
+      "epss": 0.99942,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1190 (Exploit Public-Facing Application)",
+      "remediation": "Upgrade Apache Tomcat to a patched version or disable write-enabled Default Servlet features. Sources: MITRE CWE (CWE-502 Deserialization of Untrusted Data), OWASP WSTG (WSTG-INJT-22 Insecure Deserialization).",
+      "references": [
+        "MITRE CWE (CWE-502 Deserialization of Untrusted Data)",
+        "OWASP WSTG (WSTG-INJT-22 Insecure Deserialization)",
+        "CWE-44: https://cwe.mitre.org/data/definitions/44.html",
+        "CWE-502: https://cwe.mitre.org/data/definitions/502.html",
+        "CWE-706: https://cwe.mitre.org/data/definitions/706.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.17",
+      "port": 9200,
+      "pid": 190429,
+      "pid_source": "host inventory (lab)",
+      "service": "Elasticsearch REST API",
+      "version": "1.4.2",
+      "cwes": [],
+      "asset_name": "Log search (Elasticsearch)",
+      "zone": "internal",
+      "exposure": 2.0,
+      "criticality": 7.0,
+      "version_source": "network scan",
+      "title": "Elasticsearch REST API 1.4.2 remote code execution",
+      "evidence": "Nmap scan identified Elasticsearch REST API version 1.4.2 running on port 9200/tcp.",
+      "cve": "CVE-2015-1427",
+      "cvss": 9.8,
+      "epss": 0.99906,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1648 Serverless Execution / T1203 Exploitation for Client Execution",
+      "remediation": "Upgrade Elasticsearch to version 1.4.3 (or later) where the Groovy sandbox vulnerability is resolved. Disable dynamic scripting in Elasticsearch configuration (script.groovy.inline: off or script.disable_inline: true) if upgrading immediately is not feasible. Sources: OWASP WSTG, CWE Catalog.",
+      "references": [
+        "https://owasp.org/www-project-web-security-testing-guide/latest/17-WebAssembly_Testing/03-WebAssembly_Dynamic_Analysis",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/17-WebAssembly_Testing/02-WebAssembly_Static_Analysis",
+        "https://attack.mitre.org/techniques/T1677",
+        "https://attack.mitre.org/techniques/T1203",
+        "https://attack.mitre.org/techniques/T1127",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.18",
+      "port": 8080,
+      "pid": 228610,
+      "pid_source": "host inventory (lab)",
+      "service": "Spring Framework",
+      "version": "5.3.17",
+      "cwes": [
+        "CWE-94"
+      ],
+      "asset_name": "Customer portal (Spring WebMVC, Java)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 9.0,
+      "version_source": "host inventory (lab)",
+      "title": "Spring Framework Remote Code Execution",
+      "evidence": "lab-host-18:8080/tcp (Spring Framework 5.3.17 detected in host inventory)",
+      "cve": "CVE-2022-22965",
+      "cvss": 9.8,
+      "epss": 0.99638,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1059: Command and Scripting Interpreter",
+      "remediation": "Upgrade Spring Framework to versions 5.3.18+ or 5.2.20+ (or apply Spring Boot patches 2.6.6+ / 2.5.11+). Refactor applications to avoid unsafe data binding patterns and run processes with restricted privileges. Source: MITRE CWE-94",
+      "references": [
+        "MITRE CWE-94",
+        "CWE-94: https://cwe.mitre.org/data/definitions/94.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.13",
+      "port": 8080,
+      "pid": 183583,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache Tomcat",
+      "version": "8.5.19",
+      "cwes": [],
+      "asset_name": "Partner portal (Tomcat)",
+      "zone": "dmz",
+      "exposure": 6.0,
+      "criticality": 7.0,
+      "version_source": "network scan",
+      "title": "Apache Tomcat 8.5.19 CVE-2020-1938 Ghostcat",
+      "evidence": "Apache Tomcat 8.5.19 exposed on port 8080.",
+      "cve": "CVE-2020-1938",
+      "cvss": 9.8,
+      "epss": 0.9927,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1190 (Exploit Public-Facing Application)",
+      "remediation": "Upgrade Apache Tomcat to version 8.5.51 or later, or disable/secure the AJP connector by setting a strong requiredSecret. Sources: MITRE CWE (CWE-20 Improper Input Validation).",
+      "references": [
+        "MITRE CWE (CWE-20 Improper Input Validation)",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.10",
+      "port": 80,
+      "pid": 184359,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.25",
+      "cwes": [
+        "CWE-787"
+      ],
+      "asset_name": "Staging web app (DVWA)",
+      "zone": "dmz",
+      "exposure": 6.0,
+      "criticality": 3.0,
+      "version_source": "network scan",
+      "title": "CVE-2021-44790 (Apache HTTP Server mod_lua Buffer Overflow)",
+      "evidence": "lab-host-10:80/tcp running Apache httpd 2.4.25. A carefully crafted request body can trigger a buffer overflow in the mod_lua multipart parser (r:parsebody()).",
+      "cve": "CVE-2021-44790",
+      "cvss": 9.8,
+      "epss": 0.9684,
+      "in_kev": false,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1203 (Exploitation for Client Execution)",
+      "remediation": "Upgrade Apache HTTP Server to version 2.4.52 or later, or disable mod_lua if not required. Ensure proper bounds checking and validation on buffer sizes and length arguments. Sources: MITRE CWE (CWE-787 Out-of-bounds Write, https://cwe.mitre.org/data/definitions/787.html).",
+      "references": [
+        "CWE-787: https://cwe.mitre.org/data/definitions/787.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.14",
+      "port": 80,
+      "pid": 184000,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.25",
+      "cwes": [
+        "CWE-787"
+      ],
+      "asset_name": "Corporate CMS (Drupal)",
+      "zone": "dmz",
+      "exposure": 6.0,
+      "criticality": 5.0,
+      "version_source": "network scan",
+      "title": "Apache HTTP Server mod_lua Buffer Overflow",
+      "evidence": "lab-host-14:80/tcp running Apache httpd 2.4.25. Vulnerability in mod_lua multipart parser (r:parsebody()).",
+      "cve": "CVE-2021-44790",
+      "cvss": 9.8,
+      "epss": 0.9684,
+      "in_kev": false,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1203 (Exploitation for Client Execution)",
+      "remediation": "Upgrade Apache HTTP Server to version 2.4.52 or later to patch the mod_lua multipart parser buffer overflow. Source: MITRE CWE (CWE-787 Out-of-bounds Write) ,  Ensure bounds checking and proper buffer size calculations when handling parsed input parameters.",
+      "references": [
+        "CWE-787: https://cwe.mitre.org/data/definitions/787.html",
+        "https://attack.mitre.org/techniques/T1203",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.19",
+      "port": 8983,
+      "pid": 228777,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache Solr",
+      "version": "8.11.0",
+      "cwes": [
+        "CWE-287",
+        "CWE-863"
+      ],
+      "asset_name": "Product search (Apache Solr, Java)",
+      "zone": "internal",
+      "exposure": 2.0,
+      "criticality": 6.0,
+      "version_source": "host inventory (lab)",
+      "title": "Apache Solr CVE-2024-45216",
+      "evidence": "lab-host-19:8983/tcp Apache Solr (Version 8.11.0 inventory)",
+      "cve": "CVE-2024-45216",
+      "cvss": 9.8,
+      "epss": 0.92747,
+      "in_kev": false,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1078 (Valid Accounts), T1550 (Use Alternate Authentication Material)",
+      "remediation": "Upgrade Apache Solr to the patched version addressing CVE-2024-45216. Review and harden authentication configurations, ensuring that robust authentication frameworks and mechanisms are properly enforced across all Solr nodes. Cite MITRE CWE-287: Improper Authentication.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1078",
+        "CWE-287: https://cwe.mitre.org/data/definitions/287.html",
+        "CWE-863: https://cwe.mitre.org/data/definitions/863.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.10",
+      "port": 80,
+      "pid": 184359,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.25",
+      "cwes": [
+        "CWE-444"
+      ],
+      "asset_name": "Staging web app (DVWA)",
+      "zone": "dmz",
+      "exposure": 6.0,
+      "criticality": 3.0,
+      "version_source": "network scan",
+      "title": "CVE-2023-25690 (Apache HTTP Server mod_proxy Request Smuggling)",
+      "evidence": "lab-host-10:80/tcp running Apache httpd 2.4.25. Certain mod_proxy configurations allow HTTP Request Smuggling due to discrepancies in parsing Content-Length and Transfer-Encoding headers.",
+      "cve": "CVE-2023-25690",
+      "cvss": 9.8,
+      "epss": 0.83968,
+      "in_kev": false,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1027 (Obfuscated Files or Information / HTTP/Request Smuggling context)",
+      "remediation": "Upgrade Apache HTTP Server to version 2.4.56 or later. Carefully review and restrict mod_proxy configurations to prevent inconsistent interpretation of malformed HTTP requests between intermediaries and backends. Sources: MITRE CWE (CWE-444 Inconsistent Interpretation of HTTP Requests, https://cwe.mitre.org/data/definitions/444.html).",
+      "references": [
+        "CWE-444: https://cwe.mitre.org/data/definitions/444.html"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.14",
+      "port": 80,
+      "pid": 184000,
+      "pid_source": "host inventory (lab)",
+      "service": "Apache httpd",
+      "version": "2.4.25",
+      "cwes": [
+        "CWE-444"
+      ],
+      "asset_name": "Corporate CMS (Drupal)",
+      "zone": "dmz",
+      "exposure": 6.0,
+      "criticality": 5.0,
+      "version_source": "network scan",
+      "title": "Apache HTTP Server HTTP Request Smuggling",
+      "evidence": "lab-host-14:80/tcp running Apache httpd 2.4.25 with vulnerable mod_proxy configurations.",
+      "cve": "CVE-2023-25690",
+      "cvss": 9.8,
+      "epss": 0.83968,
+      "in_kev": false,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": null,
+      "remediation": "Upgrade Apache HTTP Server to version 2.4.56 or later, and review/harden mod_proxy configurations to prevent request desynchronization and header discrepancies. Source: OWASP Web Security Testing Guide (WSTG-INJT-15 HTTP Request Smuggling) ,  Enforce strict RFC-compliant parsing, normalize request handling across all proxies/intermediaries, and terminate or revalidate backend connections upon parsing errors.",
+      "references": [
+        "https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/15-HTTP_Request_Smuggling",
+        "CWE-444: https://cwe.mitre.org/data/definitions/444.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.16",
+      "port": 8080,
+      "pid": 200426,
+      "pid_source": "host inventory (lab)",
+      "service": "CI server (Jenkins) (http)",
+      "version": null,
+      "cwes": [
+        "CWE-79"
+      ],
+      "asset_name": "CI server (Jenkins)",
+      "zone": "internal",
+      "exposure": 2.0,
+      "criticality": 9.0,
+      "version_source": "network scan",
+      "title": "Jenkins CVE-2019-10405: Cookie Header Disclosure",
+      "evidence": "Jenkins 2.196 and earlier / LTS 2.176.3 and earlier printed the value of the \"Cookie\" HTTP request header.",
+      "cve": "CVE-2019-10405",
+      "cvss": 5.4,
+      "epss": 0.6529,
+      "in_kev": false,
+      "priority": 53.08,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 0.843
+        },
+        {
+          "id": "R14",
+          "text": "IF cvss is medium AND epss is high THEN priority is high",
+          "activation": 0.8
+        },
+        {
+          "id": "R21",
+          "text": "IF exposure is internal AND cvss is medium THEN priority is low",
+          "activation": 0.8
+        }
+      ],
+      "attack_technique": "T1189",
+      "remediation": "Upgrade Jenkins to a fixed version beyond 2.196 / LTS 2.176.3. Source: MITRE CWE, CWE-79 Improper Neutralization of Input During Web Page Generation (https://cwe.mitre.org/data/definitions/79.html).",
+      "references": [
+        "https://attack.mitre.org/techniques/T1189",
+        "CWE-79: https://cwe.mitre.org/data/definitions/79.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.20",
+      "port": 5000,
+      "pid": 231471,
+      "pid_source": "host inventory (lab)",
+      "service": "Werkzeug httpd",
+      "version": "2.2.2",
+      "cwes": [
+        "CWE-352"
+      ],
+      "asset_name": "Public API (Flask/Werkzeug, Python)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 7.0,
+      "version_source": "network scan",
+      "title": "Werkzeug Debugger / Cross-Site Request Forgery (CVE-2024-34069)",
+      "evidence": "lab-host-20:5000/tcp running Werkzeug httpd version=2.2.2 (Flask/Python Public API)",
+      "cve": "CVE-2024-34069",
+      "cvss": 7.5,
+      "epss": 0.03397,
+      "in_kev": false,
+      "priority": 52.5,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R2",
+          "text": "IF exposure is internet AND cvss is high THEN priority is high",
+          "activation": 0.75
+        },
+        {
+          "id": "R13",
+          "text": "IF cvss is high AND epss is low THEN priority is medium",
+          "activation": 0.75
+        },
+        {
+          "id": "R20",
+          "text": "IF criticality is high AND cvss is high THEN priority is high",
+          "activation": 0.5
+        }
+      ],
+      "attack_technique": "T1185",
+      "remediation": "Upgrade Werkzeug to the patched version (>= 3.0.3 or latest secure release), disable debug mode in production (debug=False), and implement robust anti-CSRF tokens as outlined in OWASP WSTG-SESS-05 and MITRE CWE-352.",
+      "references": [
+        "https://owasp.org/www-project-web-security-testing-guide/latest/10-Session_Management/05-Cross_Site_Request_Forgery",
+        "CWE-352: https://cwe.mitre.org/data/definitions/352.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.18",
+      "port": 8080,
+      "pid": 228610,
+      "pid_source": "host inventory (lab)",
+      "service": "Spring Framework",
+      "version": "5.3.17",
+      "cwes": [
+        "CWE-20"
+      ],
+      "asset_name": "Customer portal (Spring WebMVC, Java)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 9.0,
+      "version_source": "host inventory (lab)",
+      "title": "Apache Tomcat Improper Input Validation",
+      "evidence": "lab-host-18:8080/tcp (Apache Tomcat / web application service)",
+      "cve": "CVE-2023-45648",
+      "cvss": 5.3,
+      "epss": 0.05883,
+      "in_kev": false,
+      "priority": 37.54,
+      "label": "medium",
+      "fired_rules": [
+        {
+          "id": "R3",
+          "text": "IF criticality is high AND cvss is medium AND exposure is internet THEN priority is high",
+          "activation": 0.85
+        },
+        {
+          "id": "R16",
+          "text": "IF cvss is medium AND epss is low THEN priority is low",
+          "activation": 0.85
+        }
+      ],
+      "attack_technique": "T1190: Exploit Public-Facing Application",
+      "remediation": "Review input handling and validate that all incoming data falls within expected allowable ranges and formats. Ensure inputs are decoded and canonicalized correctly prior to validation. Source: MITRE CWE-20",
+      "references": [
+        "MITRE CWE-20",
+        "CWE-20: https://cwe.mitre.org/data/definitions/20.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.13",
+      "port": 8080,
+      "pid": 183583,
+      "pid_source": "host inventory (lab)",
+      "service": "Partner portal (Tomcat) (http)",
+      "version": null,
+      "cwes": [
+        "CWE-20"
+      ],
+      "asset_name": "Partner portal (Tomcat)",
+      "zone": "dmz",
+      "exposure": 6.0,
+      "criticality": 7.0,
+      "version_source": "network scan",
+      "title": "Apache Tomcat CVE-2023-45648",
+      "evidence": "HTTP service running on port 8080.",
+      "cve": "CVE-2023-45648",
+      "cvss": 5.3,
+      "epss": 0.05883,
+      "in_kev": false,
+      "priority": 13.7,
+      "label": "low",
+      "fired_rules": [
+        {
+          "id": "R16",
+          "text": "IF cvss is medium AND epss is low THEN priority is low",
+          "activation": 0.85
+        }
+      ],
+      "attack_technique": "T1190 (Exploit Public-Facing Application), T1674 (Input Injection)",
+      "remediation": "Upgrade Tomcat to a patched release where HTTP request parsing has been corrected. Sources: MITRE CWE (CWE-20 Improper Input Validation).",
+      "references": [
+        "MITRE CWE (CWE-20 Improper Input Validation)",
+        "CWE-20: https://cwe.mitre.org/data/definitions/20.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.16",
+      "port": 8080,
+      "pid": 200426,
+      "pid_source": "host inventory (lab)",
+      "service": "CI server (Jenkins) (http)",
+      "version": null,
+      "cwes": [
+        "CWE-200"
+      ],
+      "asset_name": "CI server (Jenkins)",
+      "zone": "internal",
+      "exposure": 2.0,
+      "criticality": 9.0,
+      "version_source": "network scan",
+      "title": "Jenkins CVE-2020-2103: Session Identifier Exposure",
+      "evidence": "Jenkins 2.218 and earlier / LTS 2.204.1 and earlier exposed session identifiers on a user's detail object.",
+      "cve": "CVE-2020-2103",
+      "cvss": 5.4,
+      "epss": 0.07044,
+      "in_kev": false,
+      "priority": 13.65,
+      "label": "low",
+      "fired_rules": [
+        {
+          "id": "R5",
+          "text": "IF epss is low AND exposure is internal THEN priority is low",
+          "activation": 0.8637
+        },
+        {
+          "id": "R16",
+          "text": "IF cvss is medium AND epss is low THEN priority is low",
+          "activation": 0.8
+        },
+        {
+          "id": "R21",
+          "text": "IF exposure is internal AND cvss is medium THEN priority is low",
+          "activation": 0.8
+        }
+      ],
+      "attack_technique": "T1005",
+      "remediation": "Upgrade Jenkins to a version later than 2.218 or LTS 2.204.1 to prevent session identifier exposure. Source: MITRE CWE, CWE-200 / CWE-1230 Exposure of Sensitive Information Through Metadata (https://cwe.mitre.org/data/definitions/200.html).",
+      "references": [
+        "https://attack.mitre.org/techniques/T1005",
+        "CWE-200: https://cwe.mitre.org/data/definitions/200.html",
+        "https://cwe.mitre.org/data/definitions/1230.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    }
+  ],
+  "meta": {
+    "run_id": "sample_full_lab",
+    "created": "2026-11-21T07:57:58+00:00",
+    "provider": "gemini",
+    "models": [
+      "gemini-3.5-flash-lite",
+      "openai/gpt-oss-20b"
+    ],
+    "latency_s": {
+      "agent": 94.2,
+      "format": 133.7,
+      "total": 227.9
+    },
+    "hosts": [
+      "lab-host-10",
+      "lab-host-11",
+      "lab-host-12",
+      "lab-host-13",
+      "lab-host-14",
+      "lab-host-15",
+      "lab-host-16",
+      "lab-host-17",
+      "lab-host-18",
+      "lab-host-19",
+      "lab-host-20"
+    ],
+    "scans": [
+      "data/lab_scans/nmap_host10.xml",
+      "data/lab_scans/nmap_host11.xml",
+      "data/lab_scans/nmap_host12.xml",
+      "data/lab_scans/nmap_host13.xml",
+      "data/lab_scans/nmap_host14.xml",
+      "data/lab_scans/nmap_host15.xml",
+      "data/lab_scans/nmap_host16.xml",
+      "data/lab_scans/nmap_host17.xml",
+      "data/lab_scans/nmap_host18.xml",
+      "data/lab_scans/nmap_host19.xml",
+      "data/lab_scans/nmap_host20.xml",
+      "data/lab_scans/nuclei_lab.jsonl"
+    ],
+    "scenario": "Simulated ACME Retail environment: public website, online shop, customer portal and public API are internet-facing; the corporate CMS, a partner portal and a staging app sit in the DMZ; CI, logging, search and file sharing are internal only. In reality all containers are isolated on a local Docker network without internet access.",
+    "assets": [
+      {
+        "host": "lab-host-10",
+        "name": "Staging web app (DVWA)",
+        "zone": "dmz",
+        "exposure": 6.0,
+        "criticality": 3.0
+      },
+      {
+        "host": "lab-host-11",
+        "name": "Online shop (Juice Shop)",
+        "zone": "internet",
+        "exposure": 9.0,
+        "criticality": 8.0
+      },
+      {
+        "host": "lab-host-12",
+        "name": "Public website (Apache httpd)",
+        "zone": "internet",
+        "exposure": 9.0,
+        "criticality": 6.0
+      },
+      {
+        "host": "lab-host-13",
+        "name": "Partner portal (Tomcat)",
+        "zone": "dmz",
+        "exposure": 6.0,
+        "criticality": 7.0
+      },
+      {
+        "host": "lab-host-14",
+        "name": "Corporate CMS (Drupal)",
+        "zone": "dmz",
+        "exposure": 6.0,
+        "criticality": 5.0
+      },
+      {
+        "host": "lab-host-15",
+        "name": "File share (Samba)",
+        "zone": "internal",
+        "exposure": 2.0,
+        "criticality": 6.0
+      },
+      {
+        "host": "lab-host-16",
+        "name": "CI server (Jenkins)",
+        "zone": "internal",
+        "exposure": 2.0,
+        "criticality": 9.0
+      },
+      {
+        "host": "lab-host-17",
+        "name": "Log search (Elasticsearch)",
+        "zone": "internal",
+        "exposure": 2.0,
+        "criticality": 7.0
+      },
+      {
+        "host": "lab-host-18",
+        "name": "Customer portal (Spring WebMVC, Java)",
+        "zone": "internet",
+        "exposure": 9.0,
+        "criticality": 9.0
+      },
+      {
+        "host": "lab-host-19",
+        "name": "Product search (Apache Solr, Java)",
+        "zone": "internal",
+        "exposure": 2.0,
+        "criticality": 6.0
+      },
+      {
+        "host": "lab-host-20",
+        "name": "Public API (Flask/Werkzeug, Python)",
+        "zone": "internet",
+        "exposure": 9.0,
+        "criticality": 7.0
+      }
+    ],
+    "overrides": {
+      "exposure": null,
+      "criticality": null
+    }
+  }
+}

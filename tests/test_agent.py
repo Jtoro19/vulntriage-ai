@@ -312,20 +312,204 @@ def test_pdf_handles_empty_findings(tmp_path):
 
 
 def test_fill_gaps_calls_missing_tools_only(monkeypatch):
-    import fuzzy.fuzzy_engine as fe
-
     tools.reset_evidence()
     tools.EVIDENCE.note("CVE-2021-41773", cvss=9.8, epss=0.9, in_kev=True)  # agent did these
     tools.EVIDENCE.note("CVE-2021-42013", cvss=9.8)  # agent skipped this one
     monkeypatch.setattr(intel, "epss_score", lambda c: {"epss": 0.5, "percentile": 0.9})
     monkeypatch.setattr(intel, "kev_entry", lambda c: None)
-    monkeypatch.setattr(fe, "prioritize", lambda *a, **k: {
-        "priority": 70.0, "label": "high", "inputs": {}, "fired_rules": []})
-    cands = [{"cve": "CVE-2021-41773"}, {"cve": "CVE-2021-42013"}]
-    steps = agent.fill_gaps(cands, 8, 7)
+    steps = agent.fill_gaps([{"cve": "CVE-2021-41773"}, {"cve": "CVE-2021-42013"}])
     called = [(s["tool"], s["args"]["cve_id"]) for s in steps if s["type"] == "action"]
-    assert called == [("prioritize_risk (gap fill)", "CVE-2021-41773"),
-                      ("query_epss (gap fill)", "CVE-2021-42013"),
-                      ("is_in_kev (gap fill)", "CVE-2021-42013"),
-                      ("prioritize_risk (gap fill)", "CVE-2021-42013")]
-    assert tools.EVIDENCE.priority["CVE-2021-42013"]["label"] == "high"
+    assert called == [("query_epss (gap fill)", "CVE-2021-42013"),
+                      ("is_in_kev (gap fill)", "CVE-2021-42013")]
+
+
+# ---------------------------------------------------------------- assets, ties, charts
+
+def _fuzzy_rules(host: str, cvss=9.8, epss=0.9, exposure=None):
+    """Run apply_priority for one candidate and return (priority result, candidate)."""
+    tools.reset_evidence()
+    tools.EVIDENCE.note("CVE-2021-41773", cvss=cvss, epss=epss, in_kev=True)
+    cand = {"cve": "CVE-2021-41773", "row": {"host": host, "port": 80}}
+    agent.apply_priority([cand], exposure=exposure)
+    return tools.EVIDENCE.priority["CVE-2021-41773"], cand
+
+
+def test_internal_host_never_fires_exposure_internet_rule():
+    res, cand = _fuzzy_rules("lab-host-16")  # internal CI server in lab/assets.yaml
+    assert cand["exposure"] == 2.0 and cand["criticality"] == 9.0
+    assert res["fired_rules"]
+    assert not any("exposure is internet" in r["text"] for r in res["fired_rules"])
+
+
+def test_internet_host_uses_its_own_exposure_and_override_wins():
+    res, cand = _fuzzy_rules("lab-host-12")
+    assert cand["exposure"] == 9.0
+    assert any("exposure is internet" in r["text"] for r in res["fired_rules"])
+    _, over = _fuzzy_rules("lab-host-12", exposure=1.0)
+    assert over["exposure"] == 1.0
+
+
+def test_apply_priority_replaces_model_requested_values():
+    tools.reset_evidence()
+    tools.EVIDENCE.note("CVE-2021-41773", cvss=9.8, epss=0.9)
+    tools.EVIDENCE.priority["CVE-2021-41773"] = {"priority": 1.0, "label": "wrong",
+                                                 "fired_rules": []}
+    agent.apply_priority([{"cve": "CVE-2021-41773", "row": {"host": "lab-host-12"}}])
+    assert tools.EVIDENCE.priority["CVE-2021-41773"]["label"] != "wrong"
+
+
+def test_rank_key_tie_break_order():
+    from langchain_agent.schemas import rank_key
+
+    def f(**kw):
+        return Finding(title="t", evidence="e", remediation="r", **kw)
+
+    a = f(cve="A", priority=80, epss=0.5, cvss=9.0, in_kev=False)
+    b = f(cve="B", priority=80, epss=0.9, cvss=5.0, in_kev=False)   # same priority, higher EPSS
+    c = f(cve="C", priority=80, epss=0.5, cvss=9.8, in_kev=False)   # then higher CVSS
+    d = f(cve="D", priority=80, epss=0.5, cvss=9.8, in_kev=True)    # then KEV
+    e = f(cve="E", priority=90, epss=0.0, cvss=1.0)                 # priority dominates
+    assert [x.cve for x in sorted([a, b, c, d, e], key=rank_key)] == ["E", "B", "D", "C", "A"]
+
+
+def test_top_cves_breaks_cvss_ties_by_kev_then_epss(monkeypatch):
+    recs = [{"cve_id": "CVE-2016-1000027", "cvss_score": 9.8},
+            {"cve_id": "CVE-2022-22965", "cvss_score": 9.8},
+            {"cve_id": "CVE-2022-22950", "cvss_score": 6.5},
+            {"cve_id": "CVE-2022-22971", "cvss_score": 5.5}]
+    monkeypatch.setattr(intel, "epss_scores", lambda ids: {i: {"epss": 0.1} for i in ids})
+    monkeypatch.setattr(intel, "kev_entry", lambda c: {"x": 1} if c == "CVE-2022-22965" else None)
+    assert [r["cve_id"] for r in agent.top_cves(recs, 1)] == ["CVE-2022-22965"]
+    assert [r["cve_id"] for r in agent.top_cves(recs, 3)] == [
+        "CVE-2022-22965", "CVE-2016-1000027", "CVE-2022-22950"]
+
+
+def test_version_source_falls_back_to_host_inventory(monkeypatch):
+    seen = {}
+
+    def cves(cpe, limit):
+        seen["cpe"] = cpe
+        return [{"cve_id": "CVE-2022-22965", "cvss_score": 9.8, "cwes": ["CWE-94"],
+                 "description": "Spring4Shell"}]
+
+    monkeypatch.setattr(intel, "nvd_cves_for_cpe", cves)
+    monkeypatch.setattr(intel, "epss_scores", lambda ids: {})
+    monkeypatch.setattr(intel, "kev_entry", lambda c: None)
+    row = {"host": "lab-host-18", "port": 8080, "protocol": "tcp", "service": "http",
+           "product": "Apache Tomcat", "version": None, "cpe": [], "cpe23": None, "cves": []}
+    cand = agent.select_candidates([row])[0]
+    assert "spring_framework:5.3.17" in seen["cpe"]
+    assert cand["version_source"] == "host inventory (lab)"
+    tools.reset_evidence()
+    rep = Report(asset="a", executive_summary="s", findings=[
+        Finding(title="t", evidence="e", cve="CVE-2022-22965", remediation="Upgrade per CWE-94.")])
+    f = agent.enrich_findings(rep, [cand], {}).findings[0]
+    assert f.version_source == "host inventory (lab)" and f.version == "5.3.17"
+    assert f.service == "Spring Framework" and f.zone == "internet"
+    assert f.asset_name.startswith("Customer portal")
+
+
+def test_network_scan_cpe_wins_over_inventory(monkeypatch):
+    monkeypatch.setattr(intel, "nvd_cves_for_cpe", lambda cpe, limit: [])
+    row = {"host": "lab-host-18", "port": 8080,
+           "cpe23": "cpe:2.3:a:apache:tomcat:9.0.1:*:*:*:*:*:*:*"}
+    assert agent._service_cpe(row)[1] == "network scan"
+
+
+def test_chart_decisions_adapt_to_data():
+    from langchain_agent.pdf_report import chart_decisions
+
+    def f(cve, cvss, epss, host):
+        return Finding(title=cve, evidence="e", remediation="r", cve=cve, cvss=cvss, epss=epss,
+                       priority=50.0, host_ip=host)
+
+    one_band = [f("A", 9.8, 0.1, "h1"), f("B", 9.1, 0.2, "h1"), f("C", 9.9, 0.3, "h1")]
+    plan = chart_decisions(one_band)
+    assert plan["severity"] == "text" and plan["hosts"] == "text"
+    assert plan["scatter"] == "chart" and plan["priority"] == "chart"
+    mixed = one_band + [f("D", 5.0, 0.2, "h2")]
+    assert chart_decisions(mixed) == {k: "chart" for k in plan}
+    assert set(chart_decisions(one_band[:2]).values()) == {"text"}
+
+
+def test_jitter_separates_identical_points():
+    from langchain_agent.pdf_report import jitter
+
+    out = jitter([(9.8, 0.5), (9.8, 0.5), (9.8, 0.5), (5.0, 0.1)])
+    assert len(set(out[:3])) == 3 and out[3] == (5.0, 0.1)
+    assert out == jitter([(9.8, 0.5), (9.8, 0.5), (9.8, 0.5), (5.0, 0.1)])  # deterministic
+
+
+def test_findings_table_is_compact_with_no_truncation():
+    from reportlab.platypus import Paragraph
+
+    from langchain_agent.pdf_report import _styles, findings_table
+
+    long_fix = "Upgrade the package immediately and restrict traversal paths. " * 12
+    f = Finding(title="t", evidence="e", cve="CVE-2021-41773", cvss=9.8, epss=0.9, in_kev=True,
+                priority=88.0, label="urgent", host_ip="172.30.0.12", port=80, pid=1,
+                service="Apache httpd", version="2.4.49", remediation=long_fix)
+    table = findings_table([f], _styles(), 17 * 28.35)
+    cells = [c.text for row in table._cellvalues for c in row if isinstance(c, Paragraph)]
+    joined = " ".join(cells)
+    assert "See rec. #1" in joined and "..." not in joined
+    assert long_fix[:60] not in joined and "172.30.0.12:80" in joined
+
+
+def test_pdf_contains_scenario_assets_and_full_recommendation():
+    from reportlab.platypus import KeepTogether, Paragraph, Table
+
+    from langchain_agent.pdf_report import build_story
+
+    data = _fixture_report(4)
+    data["meta"].update(scenario="Simulated ACME Retail scenario.", assets=[
+        {"host": "lab-host-12", "name": "Public website", "zone": "internet", "exposure": 9.0,
+         "criticality": 6.0}])
+    story = build_story(data)
+    texts = []
+    for item in story:
+        for x in (item._content if isinstance(item, KeepTogether) else [item]):
+            if isinstance(x, Paragraph):
+                texts.append(x.text)
+            elif isinstance(x, Table):
+                texts += [c.text for row in x._cellvalues for c in row if isinstance(c, Paragraph)]
+    joined = "\n".join(texts)
+    assert "ACME Retail" in joined and "Public website" in joined
+    assert "tie" in joined.lower() and "R1: IF cvss is critical THEN urgent" in joined
+    assert "Upgrade the package and restrict paths" in joined  # full text in recommendations
+
+
+def test_generated_text_has_no_em_dash(tmp_path):
+    from langchain_agent.pdf_report import normalize_obj
+
+    out = normalize_obj({"a": ["x \u2014 y", {"b": "p \u2013 q"}]})
+    assert "\u2014" not in str(out) and "\u2013" not in str(out)
+
+
+def test_build_summary_is_clean_and_deterministic():
+    f1 = Finding(title="t", evidence="e", cve="CVE-1-1", cvss=9.8, in_kev=True, priority=88.0,
+                 label="urgent", host_ip="172.30.0.12", port=80, asset_name="Public website",
+                 remediation="r")
+    f2 = Finding(title="t", evidence="e", cve="CVE-1-2", cvss=5.0, priority=30.0, label="low",
+                 host_ip="172.30.0.16", port=8080, asset_name="CI", remediation="r")
+    text = agent.build_summary([f1, f2], 2)
+    assert "[lab-host" not in text and "1 critical" in text
+    assert "1 are listed in the CISA KEV" in text
+    assert "CVE-1-1 on Public website" in text and "ACME Retail" in text
+
+
+def test_dedupe_refs_keeps_one_entry_per_url():
+    from langchain_agent.schemas import dedupe_refs
+
+    refs = ["https://cwe.mitre.org/data/definitions/22.html",
+            "CWE-22: https://cwe.mitre.org/data/definitions/22.html", "OWASP note"]
+    out = dedupe_refs(refs)
+    assert out == ["CWE-22: https://cwe.mitre.org/data/definitions/22.html", "OWASP note"]
+
+
+def test_json_dumps_stay_valid_after_normalization():
+    from langchain_agent.pdf_report import normalize_obj
+
+    data = {"t": "say \u201chello\u201d \u2014 ok"}
+    out = json.loads(json.dumps(normalize_obj(data)))["t"]
+    assert out.isascii() and "hello" in out

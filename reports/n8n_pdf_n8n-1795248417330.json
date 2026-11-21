@@ -1,0 +1,174 @@
+{
+  "asset": "lab-spring-java",
+  "executive_summary": "3 findings across 1 hosts (3 critical by CVSS band); 1 are listed in the CISA KEV catalog. Findings are ranked by fuzzy priority using each asset's simulated exposure and criticality. Top 3 by priority: CVE-2022-22965 on Customer portal (Spring WebMVC, Java) (172.30.0.18:8080, priority 88.3 urgent); CVE-2016-1000027 on Customer portal (Spring WebMVC, Java) (172.30.0.18:8080, priority 77.4 urgent); CVE-2023-44794 on Customer portal (Spring WebMVC, Java) (172.30.0.18:8080, priority 65.6 high). Scenario: Simulated ACME Retail environment: public website, online shop, customer portal and public API are internet-facing; the corporate CMS, a partner portal and a staging app sit in the DMZ; CI, logging, search and file sharing are internal only. In reality all containers are isolated on a local Docker network without internet access.",
+  "findings": [
+    {
+      "host_ip": "172.30.0.18",
+      "port": 8080,
+      "pid": 228610,
+      "pid_source": "host inventory (lab)",
+      "service": "Spring Framework",
+      "version": "5.3.17",
+      "cwes": [
+        "CWE-94"
+      ],
+      "asset_name": "Customer portal (Spring WebMVC, Java)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 9.0,
+      "version_source": "host inventory (lab)",
+      "title": "Spring Framework RCE - SpringShell",
+      "evidence": "lab-host-18:8080/tcp running Spring WebMVC/Framework 5.3.17 on JDK 9+",
+      "cve": "CVE-2022-22965",
+      "cvss": 9.8,
+      "epss": 0.99638,
+      "in_kev": true,
+      "priority": 88.33,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1059 (Command and Scripting Interpreter) / T1190 (Exploit Public-Facing Application)",
+      "remediation": "Upgrade Spring Framework to versions 5.3.18+, 5.2.20+, or apply official patches/workarounds (such as upgrading Spring Boot to 2.6.6+ or 2.5.12+). Sources: MITRE CWE (CWE-94 Improper Control of Generation of Code).",
+      "references": [
+        "CWE-94: https://cwe.mitre.org/data/definitions/94.html",
+        "https://attack.mitre.org/techniques/T1059",
+        "https://attack.mitre.org/techniques/T1190",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.18",
+      "port": 8080,
+      "pid": 228610,
+      "pid_source": "host inventory (lab)",
+      "service": "Spring Framework",
+      "version": "5.3.17",
+      "cwes": [
+        "CWE-502"
+      ],
+      "asset_name": "Customer portal (Spring WebMVC, Java)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 9.0,
+      "version_source": "host inventory (lab)",
+      "title": "Pivotal Spring Framework RCE",
+      "evidence": "lab-host-18:8080/tcp running Spring Framework through 5.3.16",
+      "cve": "CVE-2016-1000027",
+      "cvss": 9.8,
+      "epss": 0.33179,
+      "in_kev": false,
+      "priority": 77.44,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R9",
+          "text": "IF cvss is critical AND epss is medium THEN priority is high",
+          "activation": 0.894
+        }
+      ],
+      "attack_technique": "T1190 (Exploit Public-Facing Application)",
+      "remediation": "Upgrade Spring Framework to patched versions addressing remote code execution vulnerabilities in data binding/deserialization. Ensure strict allowlisting of deserialized classes. Sources: MITRE CWE (CWE-502 Deserialization of Untrusted Data), OWASP Web Security Testing Guide (WSTG-INJT-22 Insecure Deserialization).",
+      "references": [
+        "CWE-502: https://cwe.mitre.org/data/definitions/502.html",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization",
+        "https://attack.mitre.org/techniques/T1190"
+      ]
+    },
+    {
+      "host_ip": "172.30.0.18",
+      "port": 8080,
+      "pid": 228610,
+      "pid_source": "host inventory (lab)",
+      "service": "Spring Framework",
+      "version": "5.3.17",
+      "cwes": [
+        "CWE-284"
+      ],
+      "asset_name": "Customer portal (Spring WebMVC, Java)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 9.0,
+      "version_source": "host inventory (lab)",
+      "title": "Dromara Sa-Token Privilege Escalation",
+      "evidence": "lab-host-18:8080/tcp exposed service with potential Dromara Sa-Token library integration",
+      "cve": "CVE-2023-44794",
+      "cvss": 9.8,
+      "epss": 0.01334,
+      "in_kev": false,
+      "priority": 65.59,
+      "label": "high",
+      "fired_rules": [
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": 1.0
+        },
+        {
+          "id": "R10",
+          "text": "IF cvss is critical AND epss is low THEN priority is medium",
+          "activation": 1.0
+        }
+      ],
+      "attack_technique": "T1190 (Exploit Public-Facing Application)",
+      "remediation": "Upgrade Dromara Sa-Token to version 1.36.1 or later where the privilege escalation flaw is resolved. Manage trust zones and explicit authorization controls carefully. Sources: MITRE CWE (CWE-284 Improper Access Control).",
+      "references": [
+        "CWE-284: https://cwe.mitre.org/data/definitions/284.html",
+        "https://attack.mitre.org/techniques/T1190",
+        "OWASP WSTG WSTG-INJT-22 Insecure Deserialization: https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization"
+      ]
+    }
+  ],
+  "meta": {
+    "run_id": "n8n_pdf_n8n-1795248417330",
+    "created": "2026-11-21T08:07:12+00:00",
+    "provider": "gemini",
+    "models": [
+      "gemini-3.5-flash-lite"
+    ],
+    "latency_s": {
+      "agent": 6.3,
+      "format": 4.2,
+      "total": 10.5
+    },
+    "hosts": [
+      "lab-host-18"
+    ],
+    "scans": [
+      "/tmp/tmpqey5_4v_.xml"
+    ],
+    "scenario": "Simulated ACME Retail environment: public website, online shop, customer portal and public API are internet-facing; the corporate CMS, a partner portal and a staging app sit in the DMZ; CI, logging, search and file sharing are internal only. In reality all containers are isolated on a local Docker network without internet access.",
+    "assets": [
+      {
+        "host": "lab-host-18",
+        "name": "Customer portal (Spring WebMVC, Java)",
+        "zone": "internet",
+        "exposure": 9.0,
+        "criticality": 9.0
+      }
+    ],
+    "overrides": {
+      "exposure": null,
+      "criticality": null
+    }
+  }
+}

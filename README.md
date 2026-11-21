@@ -75,6 +75,14 @@ and one Python service (a minimal Flask app pinned to Werkzeug 2.2.2 and Jinja2
 3.1.2). Nuclei runs without the templates that confirm a bug by exploiting it. See
 [docs/ethical_scope.md](docs/ethical_scope.md).
 
+**Simulated asset scenario.** The containers are all isolated, but to make the
+prioritization meaningful each one plays a role in a fictitious company, defined in
+[`lab/assets.yaml`](lab/assets.yaml): internet-facing (exposure 9: public website,
+online shop, customer portal, public API), DMZ (exposure 6: partner portal, CMS,
+staging app) or internal (exposure 2: CI, log search, product search, file share),
+each with a business criticality. The fuzzy engine, the alerts and the PDF report
+use these per-asset values, and every report states the scenario.
+
 The scan script ends with the **host inventory (lab)** step
 (`uv run python -m vulntriage.inventory`): a network scan cannot see process ids,
 so this step, running on the Docker host, maps every lab IP and port to its

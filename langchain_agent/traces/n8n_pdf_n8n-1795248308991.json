@@ -1,0 +1,412 @@
+{
+  "created": "2026-11-21T08:06:09+00:00",
+  "scans": [
+    "/tmp/tmpg_iby2wz.xml"
+  ],
+  "asset": "lab-spring-java",
+  "exposure": 8.0,
+  "criticality": 7.0,
+  "scenario": "Simulated ACME Retail environment: public website, online shop, customer portal and public API are internet-facing; the corporate CMS, a partner portal and a staging app sit in the DMZ; CI, logging, search and file sharing are internal only. In reality all containers are isolated on a local Docker network without internet access.",
+  "assets": [
+    {
+      "host": "lab-host-18",
+      "name": "Customer portal (Spring WebMVC, Java)",
+      "zone": "internet",
+      "exposure": 9.0,
+      "criticality": 9.0
+    }
+  ],
+  "hosts": [
+    "lab-host-18"
+  ],
+  "candidates": 3,
+  "provider_chain": [
+    "gemini",
+    "groq"
+  ],
+  "llm": {
+    "providers_answered": [
+      "gemini-3.5-flash-lite",
+      "openai/gpt-oss-20b"
+    ],
+    "llm_calls": 16,
+    "llm_errors": 3,
+    "input_tokens": 35051,
+    "output_tokens": 2009
+  },
+  "llm_calls": [
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.91,
+      "input_tokens": 1355,
+      "output_tokens": 31
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 1.03,
+      "input_tokens": 1434,
+      "output_tokens": 33
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.6,
+      "input_tokens": 1518,
+      "output_tokens": 31
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.57,
+      "input_tokens": 1598,
+      "output_tokens": 32
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.71,
+      "input_tokens": 1688,
+      "output_tokens": 34
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.65,
+      "input_tokens": 1758,
+      "output_tokens": 32
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.69,
+      "input_tokens": 1824,
+      "output_tokens": 58
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.69,
+      "input_tokens": 2018,
+      "output_tokens": 60
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 1.03,
+      "input_tokens": 2189,
+      "output_tokens": 59
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.57,
+      "input_tokens": 2353,
+      "output_tokens": 26
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.58,
+      "input_tokens": 2550,
+      "output_tokens": 28
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.71,
+      "input_tokens": 2742,
+      "output_tokens": 24
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.71,
+      "input_tokens": 2936,
+      "output_tokens": 29
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 0.67,
+      "input_tokens": 3459,
+      "output_tokens": 31
+    },
+    {
+      "class": "ChatGroq",
+      "model": "openai/gpt-oss-20b",
+      "latency_s": 0.91,
+      "input_tokens": 3545,
+      "output_tokens": 114
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "model": "gemini-3.5-flash-lite",
+      "latency_s": 3.48,
+      "input_tokens": 2084,
+      "output_tokens": 1387
+    }
+  ],
+  "llm_errors": [
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "error": "GoogleRateLimitError: Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing detail",
+      "latency_s": 0.24
+    },
+    {
+      "class": "ChatGoogleGenerativeAI",
+      "error": "GoogleAPIError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
+      "latency_s": 2.26
+    },
+    {
+      "class": "ChatGroq",
+      "error": "BadRequestError: Error code: 400 - {'error': {'message': 'Failed to parse tool call arguments as JSON', 'type': 'invalid_request_error', 'code': 'tool_use_failed', 'failed_generation': '{\"name\": \"report\", \"arguments\":",
+      "latency_s": 2.69
+    }
+  ],
+  "latency_s": {
+    "agent": 11.3,
+    "format": 38.6,
+    "total": 49.9
+  },
+  "steps": [
+    {
+      "type": "host",
+      "text": "lab-host-18"
+    },
+    {
+      "type": "action",
+      "tool": "query_epss",
+      "args": {
+        "cve_id": "CVE-2022-22965"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "query_epss",
+      "text": "{\"cve\":\"CVE-2022-22965\",\"epss\":0.99638,\"percentile\":0.9995}"
+    },
+    {
+      "type": "action",
+      "tool": "query_epss",
+      "args": {
+        "cve_id": "CVE-2016-1000027"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "query_epss",
+      "text": "{\"cve\":\"CVE-2016-1000027\",\"epss\":0.33179,\"percentile\":0.98405}"
+    },
+    {
+      "type": "action",
+      "tool": "query_epss",
+      "args": {
+        "cve_id": "CVE-2023-44794"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "query_epss",
+      "text": "{\"cve\":\"CVE-2023-44794\",\"epss\":0.01334,\"percentile\":0.71851}"
+    },
+    {
+      "type": "action",
+      "tool": "is_in_kev",
+      "args": {
+        "cve_id": "CVE-2022-22965"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "is_in_kev",
+      "text": "{\"cve\":\"CVE-2022-22965\",\"in_kev\":true,\"date_added\":\"2022-04-04\",\"ransomware\":\"Unknown\"}"
+    },
+    {
+      "type": "action",
+      "tool": "is_in_kev",
+      "args": {
+        "cve_id": "CVE-2016-1000027"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "is_in_kev",
+      "text": "{\"cve\":\"CVE-2016-1000027\",\"in_kev\":false}"
+    },
+    {
+      "type": "action",
+      "tool": "is_in_kev",
+      "args": {
+        "cve_id": "CVE-2023-44794"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "is_in_kev",
+      "text": "{\"cve\":\"CVE-2023-44794\",\"in_kev\":false}"
+    },
+    {
+      "type": "action",
+      "tool": "prioritize_risk",
+      "args": {
+        "criticality": 7,
+        "cve_id": "CVE-2022-22965",
+        "epss": 0.99638,
+        "cvss": 9.8,
+        "exposure": 8
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "prioritize_risk",
+      "text": "{\"cve\":\"CVE-2022-22965\",\"priority\":88.33,\"label\":\"urgent\",\"fired_rules\":[{\"id\":\"R1\",\"text\":\"IF cvss is critical AND epss is high THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R8\",\"text\":\"IF cvss is critical AND exposure is internet THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R7\",\"text\":\"IF criticality is high AND epss is high THEN priority is urgent\",\"activation\":0.5}]}"
+    },
+    {
+      "type": "action",
+      "tool": "prioritize_risk",
+      "args": {
+        "criticality": 7,
+        "epss": 0.33179,
+        "cvss": 9.8,
+        "cve_id": "CVE-2016-1000027",
+        "exposure": 8
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "prioritize_risk",
+      "text": "{\"cve\":\"CVE-2016-1000027\",\"priority\":77.44,\"label\":\"urgent\",\"fired_rules\":[{\"id\":\"R8\",\"text\":\"IF cvss is critical AND exposure is internet THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R9\",\"text\":\"IF cvss is critical AND epss is medium THEN priority is high\",\"activation\":0.894}]}"
+    },
+    {
+      "type": "action",
+      "tool": "prioritize_risk",
+      "args": {
+        "exposure": 8,
+        "criticality": 7,
+        "cvss": 9.8,
+        "epss": 0.01334,
+        "cve_id": "CVE-2023-44794"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "prioritize_risk",
+      "text": "{\"cve\":\"CVE-2023-44794\",\"priority\":65.59,\"label\":\"high\",\"fired_rules\":[{\"id\":\"R8\",\"text\":\"IF cvss is critical AND exposure is internet THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R10\",\"text\":\"IF cvss is critical AND epss is low THEN priority is medium\",\"activation\":1.0}]}"
+    },
+    {
+      "type": "action",
+      "tool": "search_attack",
+      "args": {
+        "query": "CWE-94 Improper Control of Generation of Code"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "search_attack",
+      "text": "[{\"id\":\"T1059\",\"name\":\"Command and Scripting Interpreter\",\"tactics\":[\"execution\"],\"url\":\"https://attack.mitre.org/techniques/T1059\"},{\"id\":\"T1568.002\",\"name\":\"Domain Generation Algorithms\",\"tactics\":[\"command-and-control\"],\"url\":\"https://attack.mitre.org/techniques/T1568/002\"},{\"id\":\"T1218.002\",\"name\":\"Control Panel\",\"tactics\":[\"stealth\"],\"url\":\"https://attack.mitre.org/techniques/T1218/002\"}]"
+    },
+    {
+      "type": "action",
+      "tool": "search_attack",
+      "args": {
+        "query": "CWE-502 Deserialization of Untrusted Data"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "search_attack",
+      "text": "[{\"id\":\"T1190\",\"name\":\"Exploit Public-Facing Application\",\"tactics\":[\"initial-access\"],\"url\":\"https://attack.mitre.org/techniques/T1190\"},{\"id\":\"T1597.002\",\"name\":\"Purchase Technical Data\",\"tactics\":[\"reconnaissance\"],\"url\":\"https://attack.mitre.org/techniques/T1597/002\"},{\"id\":\"T1602\",\"name\":\"Data from Configuration Repository\",\"tactics\":[\"collection\"],\"url\":\"https://attack.mitre.org/techniques/T1602\"}]"
+    },
+    {
+      "type": "action",
+      "tool": "search_attack",
+      "args": {
+        "query": "CWE-284 Improper Access Control"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "search_attack",
+      "text": "[{\"id\":\"T1190\",\"name\":\"Exploit Public-Facing Application\",\"tactics\":[\"initial-access\"],\"url\":\"https://attack.mitre.org/techniques/T1190\"},{\"id\":\"T1219\",\"name\":\"Remote Access Tools\",\"tactics\":[\"command-and-control\"],\"url\":\"https://attack.mitre.org/techniques/T1219\"},{\"id\":\"T1219.003\",\"name\":\"Remote Access Hardware\",\"tactics\":[\"command-and-control\"],\"url\":\"https://attack.mitre.org/techniques/T1219/003\"}]"
+    },
+    {
+      "type": "action",
+      "tool": "search_knowledge",
+      "args": {
+        "query": "CWE-94 Improper Control of Generation of Code remediation spring framework"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "search_knowledge",
+      "text": "[{\"source\":\"MITRE CWE\",\"title\":\"CWE-94 Improper Control of Generation of Code\",\"url\":\"https://cwe.mitre.org/data/definitions/94.html\",\"text\":\"CWE-94 Improper Control of Generation of Code CWE-94: Improper Control of Generation of Code The product constructs all or part of a code segment using externally-influenced input from an upstream component, but it does not neutralize or incorrectly neutralizes special elements that could modify the syntax or behavior of the intended code segment.\"},{\"source\":\"MITRE CWE\",\"title\":\"CWE-913 Improper Control of Dynamically-Managed Code Resources\",\"url\":\"https://cwe.mitre.org/data/definitions/913.html\",\"text\":\"CWE-913 Improper Control of Dynamically-Managed Code Resources CWE-913: Improper Control of Dynamically-Managed Code Resources The product does not properly restrict reading from or writing to dynamically-managed code resources such as variables, objects, classes, attributes, functions, or executable instructions or statements. Mitigations: For ...\"},{\"source\":\"MITRE CWE\",\"title\":\"CWE-79 Improper Neutralization of Input During Web Page Generation\",\"url\":\"https://cwe.mitre.org/data/definitions/79.html\",\"text\":\"CWE-79 Improper Neutralization of Input During Web Page Generation CWE-79: Improper Neutralization of Input During Web Page Generation The product does not neutralize or incorrectly neutralizes user-controllable input before it is placed in output that is used as a web page that is served to other users.\"},{\"source\":\"MITRE CWE\",\"title\":\"CWE-94 Improper Control of Generation of Code\",\"url\":\"https://cwe.mitre.org/data/definitions/94.html\",\"text\":\"CWE-94 Improper Control of Generation of Code Mitigations: Refactor your program so that you do not have to dynamically generate code. | Run your code in a \\\"jail\\\" or similar sandbox environment that enforces strict boundaries between the process and the operating system. This may effectively restrict which code can be executed by your product. E...\"}]"
+    },
+    {
+      "type": "action",
+      "tool": "search_knowledge",
+      "args": {
+        "query": "CWE-502 Deserialization of Untrusted Data remediation spring framework"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "search_knowledge",
+      "text": "[{\"source\":\"MITRE CWE\",\"title\":\"CWE-502 Deserialization of Untrusted Data\",\"url\":\"https://cwe.mitre.org/data/definitions/502.html\",\"text\":\"CWE-502 Deserialization of Untrusted Data CWE-502: Deserialization of Untrusted Data The product deserializes untrusted data without sufficiently ensuring that the resulting data will be valid.\"},{\"source\":\"OWASP WSTG\",\"title\":\"WSTG-INJT-22 Insecure Deserialization\",\"url\":\"https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization\",\"text\":\"WSTG-INJT-22 Insecure Deserialization ## References - [CWE-502: Deserialization of Untrusted Data](https://cwe.mitre.org/data/definitions/502.html) - [OWASP Deserialization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html) - [OWASP Top 10 2021 A08: Software and Data Integrity Failures](https://owasp.or...\"},{\"source\":\"OWASP WSTG\",\"title\":\"WSTG-INJT-22 Insecure Deserialization\",\"url\":\"https://owasp.org/www-project-web-security-testing-guide/latest/11-Injection/22-Insecure_Deserialization\",\"text\":\"WSTG-INJT-22 Insecure Deserialization ## Remediation Avoid deserializing untrusted data whenever possible. If deserialization is required: - Restrict accepted serialization formats and object types with a strict allow-list. - Implement integrity controls to detect tampering. - Apply validation before deserialization occurs. - Prefer data-only fo...\"},{\"source\":\"MITRE CWE\",\"title\":\"CWE-502 Deserialization of Untrusted Data\",\"url\":\"https://cwe.mitre.org/data/definitions/502.html\",\"text\":\"CWE-502 Deserialization of Untrusted Data Mitigations: If available, use the signing/sealing features of the programming language to assure that deserialized data has not been tainted. For example, a hash-based message authentication code (HMAC) could be used to ensure that data has not been modified. | When deserializing data, populate a new ob...\"}]"
+    },
+    {
+      "type": "final",
+      "text": "Sorry, need more steps to process this request."
+    },
+    {
+      "type": "action",
+      "tool": "prioritize_risk (code)",
+      "args": {
+        "cvss": 9.8,
+        "epss": 0.99638,
+        "exposure": 8.0,
+        "criticality": 7.0,
+        "cve_id": "CVE-2022-22965"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "prioritize_risk (code)",
+      "text": "{\"cve\":\"CVE-2022-22965\",\"priority\":88.33,\"label\":\"urgent\",\"fired_rules\":[{\"id\":\"R1\",\"text\":\"IF cvss is critical AND epss is high THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R8\",\"text\":\"IF cvss is critical AND exposure is internet THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R7\",\"text\":\"IF criticality is high AND epss is high THEN priority is urgent\",\"activation\":0.5}]}"
+    },
+    {
+      "type": "action",
+      "tool": "prioritize_risk (code)",
+      "args": {
+        "cvss": 9.8,
+        "epss": 0.33179,
+        "exposure": 8.0,
+        "criticality": 7.0,
+        "cve_id": "CVE-2016-1000027"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "prioritize_risk (code)",
+      "text": "{\"cve\":\"CVE-2016-1000027\",\"priority\":77.44,\"label\":\"urgent\",\"fired_rules\":[{\"id\":\"R8\",\"text\":\"IF cvss is critical AND exposure is internet THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R9\",\"text\":\"IF cvss is critical AND epss is medium THEN priority is high\",\"activation\":0.894}]}"
+    },
+    {
+      "type": "action",
+      "tool": "prioritize_risk (code)",
+      "args": {
+        "cvss": 9.8,
+        "epss": 0.01334,
+        "exposure": 8.0,
+        "criticality": 7.0,
+        "cve_id": "CVE-2023-44794"
+      }
+    },
+    {
+      "type": "observation",
+      "tool": "prioritize_risk (code)",
+      "text": "{\"cve\":\"CVE-2023-44794\",\"priority\":65.59,\"label\":\"high\",\"fired_rules\":[{\"id\":\"R8\",\"text\":\"IF cvss is critical AND exposure is internet THEN priority is urgent\",\"activation\":1.0},{\"id\":\"R10\",\"text\":\"IF cvss is critical AND epss is low THEN priority is medium\",\"activation\":1.0}]}"
+    }
+  ],
+  "format_error": null
+}

@@ -21,6 +21,11 @@ class Finding(BaseModel):
     service: str | None = None
     version: str | None = None
     cwes: list[str] = Field(default_factory=list)
+    asset_name: str | None = None
+    zone: str | None = None
+    exposure: float | None = None
+    criticality: float | None = None
+    version_source: str | None = None  # "network scan" or "host inventory (lab)"
     title: str = Field(description="Short finding title, e.g. 'Apache httpd 2.4.49 path traversal'")
     evidence: str = Field(description="Scan evidence: host, port, service, version")
     cve: str | None = Field(default=None, description="Most relevant CVE id or null")
@@ -40,3 +45,21 @@ class Report(BaseModel):
     asset: str
     executive_summary: str
     findings: list[Finding]
+
+
+def rank_key(f: Finding) -> tuple:
+    """Ranking: fuzzy priority, then EPSS, then CVSS, then KEV (all descending)."""
+    def num(v):
+        return -1.0 if v is None else float(v)
+
+    return (-num(f.priority), -num(f.epss), -num(f.cvss), -int(bool(f.in_kev)))
+
+
+def dedupe_refs(refs: list[str]) -> list[str]:
+    """One entry per URL (the first, labelled one wins); entries without a URL kept once."""
+    seen: dict[str, str] = {}
+    for r in refs:
+        key = r[r.index("http"):] if "http" in r else r
+        if key not in seen or (seen[key].startswith("http") and not r.startswith("http")):
+            seen[key] = r
+    return list(seen.values())
