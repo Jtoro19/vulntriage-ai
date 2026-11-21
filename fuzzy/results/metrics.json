@@ -1,0 +1,62 @@
+{
+  "dataset": {
+    "n": 510,
+    "kev_positives": 15,
+    "kev_base_rate": 0.029411764705882353,
+    "latency_reps": 5
+  },
+  "definitions": {
+    "precision_at_10": "KEV hits in top 10 / 10",
+    "recall_at_20": "KEV hits in top 20 / KEV positives",
+    "f1_at_20": "harmonic mean of precision@20 and recall@20",
+    "ties": "deterministic numbers: score descending, then cve_id ascending",
+    "expected_random_ties": "exact expectation under uniformly random tie-breaking (hypergeometric mean within the tied group straddling the cutoff; F1@20 = 2*hits/(20+positives) is linear in hits)"
+  },
+  "methods": {
+    "cvss": {
+      "precision_at_10": 0.5,
+      "recall_at_20": 0.4,
+      "f1_at_20": 0.34285714285714286,
+      "precision_at_20": 0.3,
+      "hits_top10": 5,
+      "hits_top20": 6,
+      "expected_random_ties": {
+        "precision_at_10": 0.20408163265306123,
+        "recall_at_20": 0.272108843537415,
+        "f1_at_20": 0.23323615160349856
+      },
+      "distinct_scores": 43,
+      "latency_ms": 2.0881567501883006e-05
+    },
+    "fuzzy": {
+      "precision_at_10": 0.8,
+      "recall_at_20": 0.8,
+      "f1_at_20": 0.6857142857142857,
+      "precision_at_20": 0.6,
+      "hits_top10": 8,
+      "hits_top20": 12,
+      "expected_random_ties": {
+        "precision_at_10": 0.8333333333333334,
+        "recall_at_20": 0.8,
+        "f1_at_20": 0.6857142857142857
+      },
+      "distinct_scores": 95,
+      "latency_ms": 0.6806084454900188
+    },
+    "fuzzy_no_epss": {
+      "precision_at_10": 0.5,
+      "recall_at_20": 0.4,
+      "f1_at_20": 0.34285714285714286,
+      "precision_at_20": 0.3,
+      "hits_top10": 5,
+      "hits_top20": 6,
+      "expected_random_ties": {
+        "precision_at_10": 0.20408163265306123,
+        "recall_at_20": 0.272108843537415,
+        "f1_at_20": 0.23323615160349856
+      },
+      "distinct_scores": 29,
+      "latency_ms": 0.5430504168622314
+    }
+  }
+}
