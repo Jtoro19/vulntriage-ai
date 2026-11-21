@@ -3,7 +3,8 @@
 Provider switch: VULNTRIAGE_LLM_PROVIDER = gemini | groq | ollama (default gemini).
 Fallbacks come from VULNTRIAGE_LLM_FALLBACKS (comma list) or from DEFAULT_FALLBACKS.
 Ollama is local, so by default it has NO cloud fallback (engagement data stays on
-the machine); gemini and groq fall back to each other on rate limits and server errors.
+the machine); gemini and groq fall back to each other and finally to local ollama on rate
+limits, 5xx and parse errors.
 
 RunnableWithFallbacks has no bind_tools(), so tools / structured output are bound on
 EACH model first and only then wrapped with .with_fallbacks().
@@ -22,7 +23,7 @@ from langchain_core.runnables import Runnable
 from vulntriage import config
 
 PROVIDERS = ("gemini", "groq", "ollama")
-DEFAULT_FALLBACKS = {"gemini": ["groq"], "groq": ["gemini"], "ollama": []}
+DEFAULT_FALLBACKS = {"gemini": ["groq", "ollama"], "groq": ["gemini", "ollama"], "ollama": []}
 KEY_ENV = {"gemini": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY", "ollama": None}
 TIMEOUT_S = 90
 
@@ -70,8 +71,8 @@ def build_chat_model(provider: str):
                       client_kwargs={"timeout": 600})
 
 
-def _with_fallbacks(transform: Callable[[Any], Runnable], provider: str | None = None
-                    ) -> Runnable:
+def _with_fallbacks(transform: Callable[[Any], Runnable], provider: str | None = None,
+                    retry: bool = True) -> Runnable:
     """Apply `transform` (bind_tools / with_structured_output) per model, then chain them.
 
     Any error on a provider (429 / ResourceExhausted, 5xx, timeout) hands the call to the next
@@ -83,6 +84,8 @@ def _with_fallbacks(transform: Callable[[Any], Runnable], provider: str | None =
     """
     first, *rest = [transform(build_chat_model(p)) for p in provider_chain(provider)]
     chain = first.with_fallbacks(rest) if rest else first
+    if not retry:  # caller enforces its own time budget (format step)
+        return chain
     return chain.with_retry(stop_after_attempt=3, wait_exponential_jitter=True,
                             exponential_jitter_params={"initial": 30, "max": 45})
 
@@ -92,9 +95,9 @@ def get_llm(provider: str | None = None, tools: list | None = None) -> Runnable:
     return _with_fallbacks(lambda m: m.bind_tools(tools) if tools else m, provider)
 
 
-def get_structured_llm(schema: type, provider: str | None = None) -> Runnable:
+def get_structured_llm(schema: type, provider: str | None = None, retry: bool = True) -> Runnable:
     """Chat model that returns `schema` instances, with the same fallback chain."""
-    return _with_fallbacks(lambda m: m.with_structured_output(schema), provider)
+    return _with_fallbacks(lambda m: m.with_structured_output(schema), provider, retry)
 
 
 class TraceCallback(BaseCallbackHandler):
@@ -136,3 +139,25 @@ class TraceCallback(BaseCallbackHandler):
             "input_tokens": sum(ins) if ins else None,
             "output_tokens": sum(outs) if outs else None,
         }
+
+
+def call_with_budget(fn: Callable[[], Any], seconds: float) -> Any:
+    """Run fn() in a daemon thread and give up after `seconds` (raises TimeoutError)."""
+    import threading
+
+    box: dict[str, Any] = {}
+
+    def target() -> None:
+        try:
+            box["value"] = fn()
+        except Exception as exc:  # re-raised in the caller
+            box["error"] = exc
+
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(seconds)
+    if t.is_alive():
+        raise TimeoutError(f"no answer within {seconds:.0f} s")
+    if "error" in box:
+        raise box["error"]
+    return box["value"]

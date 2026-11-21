@@ -16,8 +16,9 @@ NO_KEYS = {}
 
 def test_provider_chain_default_and_fallbacks():
     chain = llm.provider_chain("gemini", NO_KEYS, have_key=lambda p: True)
-    assert chain == ["gemini", "groq"]
-    assert llm.provider_chain("groq", NO_KEYS, have_key=lambda p: True) == ["groq", "gemini"]
+    assert chain == ["gemini", "groq", "ollama"]
+    assert llm.provider_chain("groq", NO_KEYS, have_key=lambda p: True) == [
+        "groq", "gemini", "ollama"]
 
 
 def test_ollama_has_no_cloud_fallback_by_default():
@@ -26,7 +27,7 @@ def test_ollama_has_no_cloud_fallback_by_default():
 
 def test_provider_from_env_and_missing_key_skips_fallback():
     env = {"VULNTRIAGE_LLM_PROVIDER": "groq"}
-    assert llm.provider_chain(None, env, have_key=lambda p: p != "gemini") == ["groq"]
+    assert llm.provider_chain(None, env, have_key=lambda p: p != "gemini") == ["groq", "ollama"]
     env["VULNTRIAGE_LLM_FALLBACKS"] = "ollama,groq"
     assert llm.provider_chain(None, env, have_key=lambda p: True) == ["groq", "ollama"]
 
@@ -513,3 +514,82 @@ def test_json_dumps_stay_valid_after_normalization():
     data = {"t": "say \u201chello\u201d \u2014 ok"}
     out = json.loads(json.dumps(normalize_obj(data)))["t"]
     assert out.isascii() and "hello" in out
+
+
+def test_call_with_budget_times_out_and_propagates_errors():
+    import time
+
+    with pytest.raises(TimeoutError):
+        llm.call_with_budget(lambda: time.sleep(2), 0.1)
+    with pytest.raises(ValueError):
+        llm.call_with_budget(lambda: (_ for _ in ()).throw(ValueError("x")), 1)
+    assert llm.call_with_budget(lambda: 7, 1) == 7
+
+
+def test_format_step_failure_keeps_findings_deterministically(monkeypatch, tmp_path):
+    """Host 12 formatting raises (503 on every provider): its findings must still be reported."""
+    from langchain_core.messages import AIMessage
+
+    def recs(cpe, limit):
+        return [{"cve_id": "CVE-2021-41773", "cvss_score": 9.8, "cwes": ["CWE-22"],
+                 "description": "path traversal"}]
+
+    class FakeGraph:
+        def invoke(self, state, cfg):
+            return {"messages": [AIMessage(content="analysis")]}
+
+    class FailingLLM:
+        def invoke(self, *a, **k):
+            raise RuntimeError("503 UNAVAILABLE high demand")
+
+    monkeypatch.setattr(intel, "nvd_cves_for_cpe", recs)
+    monkeypatch.setattr(intel, "epss_scores", lambda ids: {})
+    monkeypatch.setattr(intel, "epss_score", lambda c: {"epss": 0.99, "percentile": 1.0})
+    monkeypatch.setattr(intel, "kev_entry", lambda c: {"dateAdded": "x",
+                                                       "knownRansomwareCampaignUse": "n"})
+    monkeypatch.setattr(intel, "search_attack", lambda q, k=1: [{"id": "T1083", "name": "FDD"}])
+    monkeypatch.setattr(agent, "build_agent", lambda provider=None: FakeGraph())
+    monkeypatch.setattr(agent, "get_structured_llm", lambda *a, **k: FailingLLM())
+    monkeypatch.setattr(tools, "_store", lambda: (_ for _ in ()).throw(FileNotFoundError()))
+    scan = tmp_path / "s.xml"
+    scan.write_text(open("data/lab_scans/nmap_host12.xml").read())
+    res = agent.run_agent([scan], "lab", inventory=INV)
+    rep, trace = res["report"], res["trace"]
+    assert rep is not None and len(rep.findings) == 1
+    f = rep.findings[0]
+    assert f.cve == "CVE-2021-41773" and f.in_kev is True and f.priority is not None
+    assert f.fired_rules and "CWE-22" in f.remediation and f.attack_technique.startswith("T1083")
+    assert trace["format_fallback"] == {"lab-host-12": "deterministic"}
+    assert "503" in trace["format_error"]
+    md = agent.render_report_md(rep, trace, "r")
+    assert "built deterministically" in md
+
+
+def test_missing_candidates_are_completed_deterministically(monkeypatch, tmp_path):
+    """The model returns a report without the candidate CVE: it is still added from evidence."""
+    from langchain_core.messages import AIMessage
+
+    monkeypatch.setattr(intel, "nvd_cves_for_cpe", lambda cpe, limit: [
+        {"cve_id": "CVE-2021-41773", "cvss_score": 9.8, "cwes": ["CWE-22"], "description": "d"}])
+    monkeypatch.setattr(intel, "epss_scores", lambda ids: {})
+    monkeypatch.setattr(intel, "epss_score", lambda c: {"epss": 0.5, "percentile": 0.9})
+    monkeypatch.setattr(intel, "kev_entry", lambda c: None)
+    monkeypatch.setattr(intel, "search_attack", lambda q, k=1: [])
+    monkeypatch.setattr(tools, "_store", lambda: (_ for _ in ()).throw(FileNotFoundError()))
+
+    class G:
+        def invoke(self, state, cfg):
+            return {"messages": [AIMessage(content="notes")]}
+
+    class Empty:
+        def invoke(self, *a, **k):
+            return Report(asset="x", executive_summary="s", findings=[
+                Finding(title="t", evidence="e", cve="CVE-0000-0000", remediation="r")])
+
+    monkeypatch.setattr(agent, "build_agent", lambda provider=None: G())
+    monkeypatch.setattr(agent, "get_structured_llm", lambda *a, **k: Empty())
+    scan = tmp_path / "s.xml"
+    scan.write_text(open("data/lab_scans/nmap_host12.xml").read())
+    res = agent.run_agent([scan], "lab", inventory=INV)
+    assert [f.cve for f in res["report"].findings] == ["CVE-2021-41773"]
+    assert res["trace"]["format_fallback"] == {"lab-host-12": "partial"}

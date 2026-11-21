@@ -397,6 +397,13 @@ def build_story(data: dict) -> list:
         "Versions: from the network scan; when it cannot detect one, the version known from the "
         "host side is used and marked with * (version source: host inventory (lab)).",
     ]
+    fb = sorted(meta.get("format_fallback") or {})
+    if fb:
+        steps.append(
+            f"Fallback: for {', '.join(fb)} the LLM formatting step was unavailable or "
+            "incomplete, so some or all findings were built deterministically from the gathered "
+            "evidence (NVD, EPSS, KEV, fuzzy engine, ATT&CK, RAG); their remediation text is "
+            "generic and cites CWE and OWASP WSTG.")
     story += [_p("- " + s, st["body"]) for s in steps]
 
     story += [PageBreak(), _p("3. Findings", st["h1"]),

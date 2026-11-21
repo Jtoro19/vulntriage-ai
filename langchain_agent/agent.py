@@ -13,7 +13,13 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langgraph.prebuilt import create_react_agent
 
 from langchain_agent import tools as tools_mod
-from langchain_agent.llm import TraceCallback, get_llm, get_structured_llm, provider_chain
+from langchain_agent.llm import (
+    TraceCallback,
+    call_with_budget,
+    get_llm,
+    get_structured_llm,
+    provider_chain,
+)
 from langchain_agent.prompts import FORMAT_SYSTEM, prompt
 from langchain_agent.schemas import Finding, FiredRule, Report, dedupe_refs, rank_key
 from vulntriage import intel
@@ -29,6 +35,7 @@ RECURSION_LIMIT = 30
 
 
 PER_SERVICE = 3     # top CVEs per service by CVSS (same rule as the n8n workflow)
+FORMAT_BUDGET_S = 60  # per host: provider chain without backoff, then deterministic fallback
 MAX_FINDINGS = 16   # cap per run to bound LLM calls
 INVENTORY_SOURCE = "host inventory (lab)"
 
@@ -311,6 +318,45 @@ def build_summary(findings: list[Finding], hosts: int) -> str:
     return text + f"Scenario: {scenario()}"
 
 
+def deterministic_report(candidates: list[dict], asset: str) -> Report:
+    """Findings built only from evidence gathered in code (NVD, EPSS, KEV, fuzzy engine, ATT&CK
+    and RAG results); used when the LLM formatting step is unavailable. Remediation is generic
+    and cites the CWE id and OWASP WSTG, so no finding is ever dropped."""
+    ev = tools_mod.EVIDENCE
+    findings = []
+    for c in candidates:
+        row, cve = c["row"], c["cve"]
+        known = ev.cves.get(cve, {})
+        cwes = c.get("cwes") or known.get("cwes") or []
+        sw = c.get("software")
+        name = " ".join(x for x in ((sw or {}).get("product") or row.get("product"),
+                                    (sw or {}).get("version") or row.get("version")) if x)
+        try:
+            attack = intel.search_attack(" ".join(cwes) + " " + c.get("desc", ""), k=1)
+        except Exception:
+            attack = []
+        guide = ""
+        try:
+            hits = json.loads(tools_mod.search_knowledge.invoke(
+                {"query": f"{' '.join(cwes)} remediation mitigation"}))
+            hit = next((h for h in hits if isinstance(h, dict) and h.get("source") == "MITRE CWE"),
+                       None)
+            guide = f" Guidance: {hit['title']} ({hit['url']})." if hit else ""
+        except Exception:
+            pass
+        cited = ", ".join(cwes) or "the vendor advisory"
+        findings.append(Finding(
+            title=f"{cve} in {name or row.get('service') or 'service'}",
+            evidence=f"{row['host']}:{row['port']}/{row['protocol']} {name}".strip(),
+            cve=cve, cvss=known.get("cvss", c.get("cvss")), epss=known.get("epss"),
+            in_kev=known.get("in_kev"), cwes=cwes,
+            attack_technique=f"{attack[0]['id']} {attack[0]['name']}" if attack else None,
+            remediation=("Apply the vendor patch or upgrade to a fixed version, restrict network "
+                         f"access to the service, and follow OWASP WSTG guidance for {cited}."
+                         + guide)))
+    return ground_report(Report(asset=asset, executive_summary="", findings=findings))
+
+
 def _run_host(rows: list[dict], candidates: list[dict], asset: str, exposure: float | None,
               criticality: float | None, provider: str | None, cb: TraceCallback) -> dict:
     """ReAct loop plus structured formatting for the services of one host."""
@@ -329,22 +375,26 @@ def _run_host(rows: list[dict], candidates: list[dict], asset: str, exposure: fl
     t_agent = time.perf_counter() - t0
     steps = steps_from_messages(messages) + fill_gaps(candidates)
     steps += apply_priority(candidates, exposure, criticality)
-    report, t1 = None, time.perf_counter()
+    report, t1, fallback = None, time.perf_counter(), None
     try:
         if error:
             raise RuntimeError(error)
         notes = _text(messages[-1].content)
         observations = "\n".join(f"[{s['tool']}] {s['text'][:1200]}" for s in steps
                                  if s["type"] == "observation")
-        out = get_structured_llm(Report, provider).invoke(
+        llm = get_structured_llm(Report, provider, retry=False)  # same chain, no backoff loop
+        out = call_with_budget(lambda: llm.invoke(
             [SystemMessage(FORMAT_SYSTEM),
              HumanMessage(f"Asset: {asset}\n\nAnalyst notes:\n{notes}\n\nTool observations:\n"
-                          f"{observations}")], {"callbacks": [cb]})
+                          f"{observations}")], {"callbacks": [cb]}), FORMAT_BUDGET_S)
         report = ground_report(Report.model_validate(out))
         report.asset = asset
-    except Exception as exc:  # keep the trace even if formatting fails
+        if not report.findings:
+            raise ValueError("model returned no findings")
+    except Exception as exc:  # never drop the host: build its findings from the evidence
         error = f"{type(exc).__name__}: {str(exc)[:300]}"
-    return {"report": report, "steps": steps, "error": error,
+        report, fallback = deterministic_report(candidates, asset), "deterministic"
+    return {"report": report, "steps": steps, "error": error, "fallback": fallback,
             "t_agent": t_agent, "t_format": time.perf_counter() - t1}
 
 
@@ -362,6 +412,7 @@ def run_agent(scans: list[Path], asset: str, exposure: float | None = None,
     cb = TraceCallback()
     t0 = time.perf_counter()
     reports, steps, errors, t_agent, t_format, hosts = [], [], [], 0.0, 0.0, []
+    fallbacks: dict[str, str] = {}
     for host in dict.fromkeys(r["host"] for r in rows):
         host_rows = [r for r in rows if r["host"] == host]
         host_cands = [c for c in candidates if c["row"]["host"] == host]
@@ -373,8 +424,17 @@ def run_agent(scans: list[Path], asset: str, exposure: float | None = None,
         t_agent, t_format = t_agent + res["t_agent"], t_format + res["t_format"]
         if res["error"]:
             errors.append(f"{host}: {res['error']}")
+        if res["fallback"]:
+            fallbacks[host] = res["fallback"]
         if res["report"]:
-            reports.append((host, enrich_findings(res["report"], host_cands, inventory)))
+            enriched = enrich_findings(res["report"], host_cands, inventory)
+            have = {(f.cve or "").upper() for f in enriched.findings}
+            missing = [c for c in host_cands if c["cve"].upper() not in have]
+            if missing:  # the model omitted or mislabelled some CVEs: never drop them
+                extra = deterministic_report(missing, asset)
+                enriched.findings += enrich_findings(extra, missing, inventory).findings
+                fallbacks[host] = fallbacks.get(host) or "partial"
+            reports.append((host, enriched))
     report = None
     if reports:
         findings = sorted((f for _, r in reports for f in r.findings), key=rank_key)
@@ -392,6 +452,7 @@ def run_agent(scans: list[Path], asset: str, exposure: float | None = None,
         "latency_s": {"agent": round(t_agent, 1), "format": round(t_format, 1),
                       "total": round(time.perf_counter() - t0, 1)},
         "steps": steps, "format_error": "; ".join(errors) or None,
+        "format_fallback": fallbacks,
     }
     return {"report": report, "trace": trace}
 
@@ -423,6 +484,11 @@ def render_report_md(report: Report, trace: dict, run_id: str) -> str:
         out += [f"| {x['host']} | {x['name']} | {x['zone']} | {x['exposure']:g} "
                 f"| {x['criticality']:g} |" for x in trace["assets"]]
         out.append("")
+    if trace.get("format_fallback"):
+        out += [f"Note: for {', '.join(sorted(trace['format_fallback']))} the LLM formatting step "
+                "was unavailable or incomplete; some or all findings were built deterministically "
+                "from tool evidence "
+                "(generic remediation citing CWE and OWASP WSTG).", ""]
     out += [
            "## Findings (ordered by fuzzy priority)", "",
            "| # | Host:port | Asset | PID | Service | CVE | CVSS | EPSS | KEV | Priority | Label |",

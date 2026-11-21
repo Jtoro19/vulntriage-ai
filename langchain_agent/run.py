@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             "models": trace["llm"]["providers_answered"], "latency_s": trace["latency_s"],
             "hosts": trace["hosts"], "scans": trace["scans"],
             "scenario": trace["scenario"], "assets": trace["assets"],
+            "format_fallback": trace["format_fallback"],
             "overrides": {"exposure": args.exposure, "criticality": args.criticality}}
     saved = {**report.model_dump(), "meta": meta}
     (REPORT_DIR / f"{run_id}.json").write_text(
