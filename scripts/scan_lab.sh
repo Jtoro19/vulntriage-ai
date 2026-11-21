@@ -31,7 +31,9 @@ if [[ ! -d .cache/nuclei-templates/http/cves ]]; then
   git -C .cache/nuclei-templates sparse-checkout set http/cves network/cves
 fi
 
-# 2. Nuclei CVE templates over the HTTP services found by Nmap.
+# 2. Nuclei CVE templates over the services found by Nmap. Templates that confirm a
+#    vulnerability by exploiting it (RCE, file read, injection, out-of-band callbacks)
+#    are excluded, so Nuclei only fingerprints; raw requests and responses are not stored.
 TARGETS="$RAW/targets.txt"
 for ip in "${IPS[@]}"; do
   host=$(echo "$ip" | cut -d. -f4)
@@ -42,7 +44,8 @@ docker run --rm --network vulntriage-lab_lab \
   -v "$PWD/.cache/nuclei-templates:/templates:ro" \
   -v "$RAW:/scan" projectdiscovery/nuclei:latest \
   -l /scan/targets.txt -t /templates/http/cves -t /templates/network/cves -severity critical,high,medium \
-  -etags dos,intrusive,fuzz -disable-update-check -silent -jsonl -o /scan/nuclei.jsonl -rate-limit 50 || true
+  -etags dos,intrusive,fuzz,rce,lfi,traversal,sqli,xss,ssrf,xxe,deserialization,oast,injection,file-upload \
+  -omit-raw -disable-update-check -silent -jsonl -o /scan/nuclei.jsonl -rate-limit 50 || true
 [[ -f "$RAW/nuclei.jsonl" ]] || : > "$RAW/nuclei.jsonl"
 uv run python scripts/anonymize_scan.py "$RAW/nuclei.jsonl" "$OUT/nuclei_lab.jsonl"
 # 3. Host inventory (lab): container, process and PID behind every listening port.

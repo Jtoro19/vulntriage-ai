@@ -14,6 +14,7 @@ until curl -s -o /dev/null -w "%{http_code}" http://localhost:5678/healthz | gre
 sleep 5
 docker exec "$C" n8n export:workflow --id=VulnTriageAI0001 --pretty --output=/tmp/export.json
 docker cp "$C:/tmp/export.json" "$TMP"
-jq 'if type=="array" then .[0] else . end' "$TMP" > workflow/vulntriage_workflow.json
+# Drop the sharing block: it holds the n8n owner account name and email.
+jq 'if type=="array" then .[0] else . end | del(.shared)' "$TMP" > workflow/vulntriage_workflow.json
 rm -f "$TMP"
 echo "Deployed and exported workflow/vulntriage_workflow.json"

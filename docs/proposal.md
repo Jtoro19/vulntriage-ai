@@ -2,11 +2,8 @@
 
 **Title:** VulnTriage-AI: An Intelligent Assistant for Vulnerability Triage and Prioritization in Ethical Hacking Engagements
 
-**Instructor:** 
 **Program:** Specialization in Artificial Intelligence, Universidad Nacional de Colombia, Sede Manizales
-**Team members:**
--  ()
--  ()
+**Team:** see the course presentation
 
 ---
 

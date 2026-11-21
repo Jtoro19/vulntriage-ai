@@ -18,11 +18,14 @@ it never attacks.
 
 ## What is never done
 - No external, public or third-party host is scanned.
-- No exploit is executed by the system. Nuclei runs its CVE detection
-  templates with a rate limit, only against the lab, and with the `dos`,
-  `intrusive` and `fuzz` tags excluded. Some detection templates confirm a
-  vulnerability with a harmless proof request (for example reading a known
-  file); that happens only inside the isolated lab.
+- No exploit is executed. Nuclei runs its CVE templates with a rate limit, only
+  against the lab, with every template that confirms a vulnerability by
+  exploiting it excluded (tags `rce`, `lfi`, `traversal`, `sqli`, `xss`, `ssrf`,
+  `xxe`, `deserialization`, `injection`, `file-upload`, `oast`, plus `dos`,
+  `intrusive`, `fuzz`), and with `-omit-raw` so no request or response body is
+  stored. During development one unfiltered run showed that a CVE template
+  (CVE-2015-1427) executes a command to confirm the bug; that is why the
+  exclusion list exists. Those raw outputs were discarded.
 - No autonomous active action: the n8n workflow and the LangChain agent only
   read scan reports and public threat intelligence (NVD, FIRST EPSS, CISA KEV,
   MITRE ATT&CK). Any active test is a human decision outside the system.

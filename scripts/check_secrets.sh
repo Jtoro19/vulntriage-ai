@@ -16,6 +16,17 @@ if [[ -f .env ]]; then
     fi
   done < .env
 fi
+# Personal data: names and emails must never be in tracked files. The patterns live in a
+# git-ignored file so that they are not published themselves.
+PII=_private/pii_patterns.txt
+if [[ -f "$PII" ]]; then
+  if git ls-files -z | xargs -0 rg -l -i -I -f "$PII" 2>/dev/null; then
+    echo "Personal data pattern (names/emails) found in tracked files" >&2; status=1
+  fi
+  if git log --format='%an%n%ae%n%cn%n%ce%n%B' | rg -q -i -f "$PII"; then
+    echo "Personal data pattern found in commit metadata or messages" >&2; status=1
+  fi
+fi
 for f in .env _private _checklists BRIEF.md AGENTS.md CLAUDE.md GEMINI.md .envrc .mcp.json .claude; do
   if git ls-files --error-unmatch "$f" >/dev/null 2>&1 || [[ -n "$(git ls-files "$f")" ]]; then
     echo "Forbidden path tracked: $f" >&2; status=1
