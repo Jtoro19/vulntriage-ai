@@ -135,14 +135,14 @@ All numbers below are read from files produced by the scripts above.
 | Metric | Value |
 |---|---|
 | n8n version | 2.48.7 |
-| Active nodes | 22 |
+| Active nodes | 24 |
 | Trigger | webhook (POST /webhook/vulntriage) |
 | Executions measured (real lab reports, 20 s apart) | 24 |
 | Success rate (n8n status success and HTTP 200) | 100% (24/24) |
-| Average execution time, all runs | 3.36 s |
-| Average execution time, runs with CVE findings | 5.75 s |
+| Average execution time, all runs | 3.49 s |
+| Average execution time, runs with CVE findings | 5.97 s |
 | Runs with CVE-linked findings | 14 (the rest end in the no-findings branch in about 0.03 s) |
-| Runs with findings enriched by the LLM | 14/14 (Gemini 13, Groq fallback 1) |
+| Runs with findings enriched by the LLM | 14/14 (Gemini 14, Groq fallback 0) |
 | Findings logged to Postgres | 44 |
 
 Per-run data: [`workflow/metrics/executions.csv`](workflow/metrics/executions.csv). An earlier
