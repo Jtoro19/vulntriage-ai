@@ -1,0 +1,40 @@
+{
+  "asset": "lab web server",
+  "executive_summary": "The Apache httpd version 2.4.49 on the lab web server is vulnerable to CVE-2021-41773, a critical path traversal vulnerability that is actively exploited. This vulnerability is rated as highly critical with a CVSS score of 9.8 and an EPSS percentile of 0.99986, making it a top priority for remediation.",
+  "findings": [
+    {
+      "title": "CVE-2021-41773",
+      "evidence": "Apache httpd version 2.4.49",
+      "cve": null,
+      "cvss": 9.8,
+      "epss": 0.99992,
+      "in_kev": null,
+      "priority": 88.33,
+      "label": "Urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": null
+        },
+        {
+          "id": "R8",
+          "text": "IF cvss is critical AND exposure is internet THEN priority is urgent",
+          "activation": null
+        },
+        {
+          "id": "R7",
+          "text": "IF criticality is high AND epss is high THEN priority is urgent",
+          "activation": null
+        }
+      ],
+      "attack_technique": "T1083, T1574.007, T1574.008",
+      "remediation": "- Ensure that the Apache httpd server is updated to the latest version to mitigate the path traversal vulnerability.\n- Implement strict directory indexing and access control policies to prevent unauthorized access to sensitive files.\n- Use the OWASP Web Security Testing Guide (source: OWASP, title: \"Testing for Path Traversal\") to validate the security measures in place.\n- Follow the Apache HTTP Server documentation and security advisories to apply the necessary patches and configurations.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1083",
+        "https://attack.mitre.org/techniques/T1574/007",
+        "https://attack.mitre.org/techniques/T1574/008"
+      ]
+    }
+  ]
+}

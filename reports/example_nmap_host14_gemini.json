@@ -1,0 +1,30 @@
+{
+  "asset": "lab CMS server",
+  "executive_summary": "Analysis of lab CMS server identified a critical Apache HTTP Server vulnerability (CVE-2021-26691) involving a heap overflow via mod_session.",
+  "findings": [
+    {
+      "title": "Apache HTTP Server 2.4.25 Heap Overflow",
+      "evidence": "lab-host-14:80/tcp, Apache httpd 2.4.25",
+      "cve": "CVE-2021-26691",
+      "cvss": 9.8,
+      "epss": 0.68067,
+      "in_kev": false,
+      "priority": 88.15,
+      "label": "urgent",
+      "fired_rules": [
+        {
+          "id": "R1",
+          "text": "IF cvss is critical AND epss is high THEN priority is urgent",
+          "activation": 0.9356
+        }
+      ],
+      "attack_technique": "T1203 Exploitation for Client Execution",
+      "remediation": "Upgrade the Apache HTTP Server to version 2.4.47 or later, where the heap overflow vulnerability involving mod_session and crafted SessionHeader values has been corrected. Replace or update vulnerable modules and ensure unbounded memory operations are properly mitigated. Sources: MITRE CWE (CWE-787: Out-of-bounds Write, CWE-119: Improper Restriction of Operations within the Bounds of a Memory Buffer).",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/787.html",
+        "https://cwe.mitre.org/data/definitions/119.html",
+        "https://attack.mitre.org/techniques/T1203"
+      ]
+    }
+  ]
+}
