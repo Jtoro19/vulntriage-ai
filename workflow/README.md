@@ -23,7 +23,7 @@ referenced by name.
 | 12 | CISA KEV catalog | HTTP Request (execute once) | Known Exploited Vulnerabilities catalog. |
 | 13 | Combine intel | Code | Joins NVD, EPSS and KEV; flags critical = in KEV or CVSS >= 9. |
 | 14 | Build LLM prompt | Code | One prompt per report (keeps the free-tier quota). |
-| 15 | Gemini summarize | HTTP Request | Gemini Flash, temperature 0.1, JSON output: summary and ATT&CK technique per finding. |
+| 15 | Gemini summarize | HTTP Request | Gemini Flash-Lite (temperature 0.1 requested; this model applies fixed sampling defaults), JSON output: summary and ATT&CK technique per finding. |
 | 16 | Groq fallback | HTTP Request | Runs only from the Gemini error output (quota, 429, 5xx). |
 | 17 | Parse LLM output | Code | Accepts Gemini or Groq output; degrades to intel-only if both fail. |
 | 18 | Log findings to Postgres | Postgres | Inserts every enriched finding into `vulntriage.findings`. |
