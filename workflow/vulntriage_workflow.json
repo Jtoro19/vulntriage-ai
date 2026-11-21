@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-21T06:14:21.699Z",
+  "updatedAt": "2026-11-21T06:33:25.586Z",
   "createdAt": "2026-11-21T06:14:21.699Z",
   "id": "VulnTriageAI0001",
   "name": "VulnTriage-AI",
@@ -55,12 +55,12 @@
           "conditions": [
             {
               "id": "123c9ffd-5b92-5e58-b1e9-cbfe83aa37da",
-              "leftValue": "={{ $json.cves.length }}",
+              "leftValue": "={{ $json.cves.length > 0 || $json.empty === true }}",
               "operator": {
-                "type": "number",
-                "operation": "gt"
-              },
-              "rightValue": 0
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -151,7 +151,53 @@
         300
       ],
       "parameters": {
-        "jsCode": "// One item per (host, port, CVE), deduplicated and capped to bound latency.\nconst MAX_CVES = 12;\nconst seen = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const f = item.json;\n  for (const cve of f.cves || []) {\n    const key = `${f.host}:${f.port}:${cve}`;\n    if (seen.has(key) || out.length >= MAX_CVES) continue;\n    seen.add(key);\n    out.push({ json: { run_id: f.run_id, asset: f.asset, host: f.host, port: f.port,\n      service: f.service, product: f.product, version: f.version, cve_id: cve } });\n  }\n}\nif (out.length === 0) throw new Error('No CVE could be linked to the scan report');\nreturn out;"
+        "jsCode": "// One item per (host, port, CVE), deduplicated and capped to bound latency.\nconst MAX_CVES = 12;\nconst seen = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const f = item.json;\n  for (const cve of f.cves || []) {\n    const key = `${f.host}:${f.port}:${cve}`;\n    if (seen.has(key) || out.length >= MAX_CVES) continue;\n    seen.add(key);\n    out.push({ json: { run_id: f.run_id, asset: f.asset, host: f.host, port: f.port,\n      service: f.service, product: f.product, version: f.version, cve_id: cve } });\n  }\n}\nif (out.length === 0) {\n  const f = $input.first().json;\n  return [{ json: { no_cves: true, run_id: f.run_id, asset: f.asset,\n    parsed_services: f.parsed_services || 0 } }];\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "746e961e-932f-5f04-bdd2-6a33642d32b0",
+      "name": "CVEs linked?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "26a8d56d-7ad8-5684-a085-a4494be7e4b2",
+              "leftValue": "={{ $json.no_cves !== true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ecb7ae64-92fc-55d0-ad0a-4f5652c3f72b",
+      "name": "Respond no findings",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        520
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ run_id: $json.run_id, asset: $json.asset, findings: 0, critical_count: 0, parsed_services: $json.parsed_services, message: 'No CVE-linked findings in this report' }) }}",
+        "options": {}
       }
     },
     {
@@ -160,7 +206,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1540,
+        1760,
         300
       ],
       "parameters": {
@@ -204,7 +250,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1760,
+        1980,
         300
       ],
       "parameters": {
@@ -233,7 +279,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1980,
+        2200,
         300
       ],
       "parameters": {
@@ -254,7 +300,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2200,
+        2420,
         300
       ],
       "parameters": {
@@ -267,7 +313,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2420,
+        2640,
         300
       ],
       "parameters": {
@@ -280,7 +326,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2640,
+        2860,
         300
       ],
       "parameters": {
@@ -313,7 +359,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2860,
+        3080,
         480
       ],
       "parameters": {
@@ -346,7 +392,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3080,
+        3300,
         300
       ],
       "parameters": {
@@ -359,7 +405,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3300,
+        3520,
         300
       ],
       "parameters": {
@@ -412,7 +458,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3520,
+        3740,
         300
       ],
       "parameters": {
@@ -425,7 +471,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3740,
+        3960,
         300
       ],
       "parameters": {
@@ -456,7 +502,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3960,
+        4180,
         200
       ],
       "parameters": {
@@ -477,7 +523,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        4180,
+        4400,
         300
       ],
       "parameters": {
@@ -565,7 +611,25 @@
       "main": [
         [
           {
+            "node": "CVEs linked?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CVEs linked?": {
+      "main": [
+        [
+          {
             "node": "NVD CVE details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond no findings",
             "type": "main",
             "index": 0
           }
@@ -731,9 +795,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "419e1945-1ce4-4c29-923f-29bda352ea53",
-  "activeVersionId": "419e1945-1ce4-4c29-923f-29bda352ea53",
-  "versionCounter": 1,
+  "versionId": "4b1e9a2e-977a-4371-8ff3-ea5d0a246ed1",
+  "activeVersionId": "4b1e9a2e-977a-4371-8ff3-ea5d0a246ed1",
+  "versionCounter": 2,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],

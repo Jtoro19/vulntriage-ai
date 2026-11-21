@@ -103,7 +103,11 @@ for (const item of $input.all()) {
       service: f.service, product: f.product, version: f.version, cve_id: cve } });
   }
 }
-if (out.length === 0) throw new Error('No CVE could be linked to the scan report');
+if (out.length === 0) {
+  const f = $input.first().json;
+  return [{ json: { no_cves: true, run_id: f.run_id, asset: f.asset,
+    parsed_services: f.parsed_services || 0 } }];
+}
 return out;
 """
 
@@ -269,36 +273,44 @@ def build() -> dict:
             "httpMethod": "POST", "path": "vulntriage", "responseMode": "responseNode",
             "options": {}}, webhookId="5b1d2c7e-6f0a-4c3e-9a51-3d7f2a1e0b01"),
         code("Parse scan report", PARSE_JS, (220, 300)),
-        if_node("Has CVE ids?", (440, 300), "={{ $json.cves.length }}",
-                {"type": "number", "operation": "gt"}, 0),
+        if_node("Has CVE ids?", (440, 300), "={{ $json.cves.length > 0 || $json.empty === true }}",
+                {"type": "boolean", "operation": "true", "singleValue": True}),
         http("NVD CPE lookup", (660, 420), "https://services.nvd.nist.gov/rest/json/cves/2.0",
              query=[("virtualMatchString", "={{ $json.cpe23 }}"), ("resultsPerPage", "200")],
              headers=NVD_HEADERS, batch_ms=700, **RETRY),
         code("Top CVEs from CPE", TOP_CVES_JS, (880, 420), per_item=True),
         node("Join CVE sources", "n8n-nodes-base.merge", 3, (1100, 300), {}),
         code("One item per CVE", SPLIT_JS, (1320, 300)),
-        http("NVD CVE details", (1540, 300), "https://services.nvd.nist.gov/rest/json/cves/2.0",
+        if_node("CVEs linked?", (1540, 300), "={{ $json.no_cves !== true }}",
+                {"type": "boolean", "operation": "true", "singleValue": True}),
+        node("Respond no findings", "n8n-nodes-base.respondToWebhook", 1.1, (1760, 520), {
+            "respondWith": "json",
+            "responseBody": "={{ JSON.stringify({ run_id: $json.run_id, asset: $json.asset, "
+                            "findings: 0, critical_count: 0, parsed_services: $json.parsed_services, "
+                            "message: 'No CVE-linked findings in this report' }) }}",
+            "options": {}}),
+        http("NVD CVE details", (1760, 300), "https://services.nvd.nist.gov/rest/json/cves/2.0",
              query=[("cveId", "={{ $json.cve_id }}")], headers=NVD_HEADERS, batch_ms=700,
              **RETRY),
-        http("FIRST EPSS", (1760, 300), "https://api.first.org/data/v1/epss",
+        http("FIRST EPSS", (1980, 300), "https://api.first.org/data/v1/epss",
              query=[("cve", "={{ $('One item per CVE').item.json.cve_id }}")], **RETRY),
-        http("CISA KEV catalog", (1980, 300),
+        http("CISA KEV catalog", (2200, 300),
              "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
              executeOnce=True, **RETRY),
-        code("Combine intel", COMBINE_JS, (2200, 300)),
-        code("Build LLM prompt", PROMPT_JS, (2420, 300)),
-        http("Gemini summarize", (2640, 300),
+        code("Combine intel", COMBINE_JS, (2420, 300)),
+        code("Build LLM prompt", PROMPT_JS, (2640, 300)),
+        http("Gemini summarize", (2860, 300),
              "=https://generativelanguage.googleapis.com/v1beta/models/"
              "{{ $env.VULNTRIAGE_GEMINI_MODEL || 'gemini-3.5-flash' }}:generateContent",
              method="POST", headers=[("x-goog-api-key", "={{ $env.GOOGLE_API_KEY }}")],
              json_body=GEMINI_BODY, timeout=90000, retryOnFail=True, maxTries=2,
              waitBetweenTries=5000, onError="continueErrorOutput"),
-        http("Groq fallback", (2860, 480), "https://api.groq.com/openai/v1/chat/completions",
+        http("Groq fallback", (3080, 480), "https://api.groq.com/openai/v1/chat/completions",
              method="POST", headers=[("Authorization", "=Bearer {{ $env.GROQ_API_KEY }}")],
              json_body=GROQ_BODY, timeout=90000, retryOnFail=True, maxTries=2,
              waitBetweenTries=5000, onError="continueRegularOutput"),
-        code("Parse LLM output", PARSE_LLM_JS, (3080, 300)),
-        node("Log findings to Postgres", "n8n-nodes-base.postgres", 2.5, (3300, 300), {
+        code("Parse LLM output", PARSE_LLM_JS, (3300, 300)),
+        node("Log findings to Postgres", "n8n-nodes-base.postgres", 2.5, (3520, 300), {
             "schema": {"__rl": True, "mode": "list", "value": "public"},
             "table": {"__rl": True, "mode": "name", "value": "findings"},
             "columns": {"mappingMode": "defineBelow", "value": {
@@ -308,14 +320,14 @@ def build() -> dict:
                     "attack_technique", "critical", "summary", "llm_provider")},
                 "matchingColumns": [], "schema": []},
             "options": {}}, credentials=PG_CREDENTIAL),
-        code("Aggregate run", AGGREGATE_JS, (3520, 300)),
-        if_node("Critical findings? (KEV or CVSS >= 9)", (3740, 300),
+        code("Aggregate run", AGGREGATE_JS, (3740, 300)),
+        if_node("Critical findings? (KEV or CVSS >= 9)", (3960, 300),
                 "={{ $json.critical_count > 0 && $json.notify }}",
                 {"type": "boolean", "operation": "true", "singleValue": True}),
-        http("Telegram alert", (3960, 200),
+        http("Telegram alert", (4180, 200),
              "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
              method="POST", json_body=TELEGRAM_BODY, onError="continueRegularOutput"),
-        node("Respond with triage", "n8n-nodes-base.respondToWebhook", 1.1, (4180, 300), {
+        node("Respond with triage", "n8n-nodes-base.respondToWebhook", 1.1, (4400, 300), {
             "respondWith": "json",
             "responseBody": "={{ JSON.stringify($('Aggregate run').first().json) }}",
             "options": {}}),
@@ -332,7 +344,8 @@ def build() -> dict:
         "NVD CPE lookup": {"main": [link("Top CVEs from CPE")]},
         "Top CVEs from CPE": {"main": [link(("Join CVE sources", 1))]},
         "Join CVE sources": {"main": [link("One item per CVE")]},
-        "One item per CVE": {"main": [link("NVD CVE details")]},
+        "One item per CVE": {"main": [link("CVEs linked?")]},
+        "CVEs linked?": {"main": [link("NVD CVE details"), link("Respond no findings")]},
         "NVD CVE details": {"main": [link("FIRST EPSS")]},
         "FIRST EPSS": {"main": [link("CISA KEV catalog")]},
         "CISA KEV catalog": {"main": [link("Combine intel")]},

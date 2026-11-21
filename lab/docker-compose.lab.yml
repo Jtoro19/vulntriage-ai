@@ -27,8 +27,9 @@ services:
   drupal:
     image: vulhub/drupal:8.5.0           # CVE-2018-7600 (Drupalgeddon2)
     networks: { lab: { ipv4_address: 172.30.0.14 } }
-  weblogic:
-    image: vulhub/weblogic:10.3.6.0-2017 # CVE-2017-10271
+  samba:
+    image: vulhub/samba:4.6.3            # CVE-2017-7494 (SambaCry)
+    tty: true
     networks: { lab: { ipv4_address: 172.30.0.15 } }
   jenkins:
     image: vulhub/jenkins:2.46.1         # CVE-2017-1000353

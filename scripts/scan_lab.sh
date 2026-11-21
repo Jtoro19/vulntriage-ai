@@ -24,6 +24,13 @@ for ip in "${IPS[@]}"; do
   uv run python scripts/anonymize_scan.py "$RAW/$name.xml" "$OUT/$name.xml"
 done
 
+# Nuclei CVE templates are fetched once with a sparse git checkout (no internet in the lab).
+if [[ ! -d .cache/nuclei-templates/http/cves ]]; then
+  git clone --depth 1 --filter=blob:none --sparse \
+    https://github.com/projectdiscovery/nuclei-templates.git .cache/nuclei-templates
+  git -C .cache/nuclei-templates sparse-checkout set http/cves network/cves
+fi
+
 # 2. Nuclei CVE templates over the HTTP services found by Nmap.
 TARGETS="$RAW/targets.txt"
 for ip in "${IPS[@]}"; do
@@ -32,11 +39,10 @@ for ip in "${IPS[@]}"; do
     | while read -r port; do echo "http://$ip:$port"; done
 done | sort -u > "$TARGETS"
 docker run --rm --network vulntriage-lab_lab \
-  -v vulntriage_nuclei_templates:/root/nuclei-templates \
-  -v vulntriage_nuclei_config:/root/.config/nuclei \
+  -v "$PWD/.cache/nuclei-templates:/templates:ro" \
   -v "$RAW:/scan" projectdiscovery/nuclei:latest \
-  -l /scan/targets.txt -tags cve -severity critical,high,medium \
+  -l /scan/targets.txt -t /templates/http/cves -t /templates/network/cves -severity critical,high,medium \
   -disable-update-check -silent -jsonl -o /scan/nuclei.jsonl -rate-limit 50 || true
-touch "$RAW/nuclei.jsonl"
+[[ -f "$RAW/nuclei.jsonl" ]] || : > "$RAW/nuclei.jsonl"
 uv run python scripts/anonymize_scan.py "$RAW/nuclei.jsonl" "$OUT/nuclei_lab.jsonl"
-echo "Reports written to $OUT:"; ls -1 "$OUT"
+echo "Reports written to $OUT"
