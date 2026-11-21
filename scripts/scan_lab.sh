@@ -47,7 +47,8 @@ docker run --rm --network vulntriage-lab_lab \
   -etags dos,intrusive,fuzz,rce,lfi,traversal,sqli,xss,ssrf,xxe,deserialization,oast,injection,file-upload \
   -omit-raw -disable-update-check -silent -jsonl -o /scan/nuclei.jsonl -rate-limit 50 || true
 [[ -f "$RAW/nuclei.jsonl" ]] || : > "$RAW/nuclei.jsonl"
-uv run python scripts/anonymize_scan.py "$RAW/nuclei.jsonl" "$OUT/nuclei_lab.jsonl"
+jq -c 'del(.request, .response, ."curl-command")' "$RAW/nuclei.jsonl" > "$RAW/nuclei_clean.jsonl"
+uv run python scripts/anonymize_scan.py "$RAW/nuclei_clean.jsonl" "$OUT/nuclei_lab.jsonl"
 # 3. Host inventory (lab): container, process and PID behind every listening port.
 uv run python -m vulntriage.inventory > /dev/null
 echo "Reports written to $OUT and data/inventory/lab_inventory.json"

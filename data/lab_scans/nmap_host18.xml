@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.993 scan initiated Sat Nov 21 02:10:09 2026 as: nmap -sV -Pn -p 1-10000 -oX /tmp/tmp.QNxvJXbWPq/nmap_host18.xml lab-host-18 -->
+<nmaprun scanner="nmap" args="nmap -sV -Pn -p 1-10000 -oX /tmp/tmp.QNxvJXbWPq/nmap_host18.xml lab-host-18" start="1795245009" startstr="Sat Nov 21 02:10:09 2026" version="7.993" xmloutputversion="1.05">
+<scaninfo type="connect" protocol="tcp" numservices="10000" services="1-10000"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1795245010" endtime="1795245016"><status state="up" reason="user-set" reason_ttl="0"/>
+<address addr="lab-host-18" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><extraports state="closed" count="9999">
+<extrareasons reason="conn-refused" count="9999" proto="tcp" ports="1-8079,8081-10000"/>
+</extraports>
+<port protocol="tcp" portid="8080"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="nagios-nsca" product="Nagios NSCA" method="probed" conf="10"/></port>
+</ports>
+<times srtt="82" rttvar="84" to="100000"/>
+</host>
+<runstats><finished time="1795245016" timestr="Sat Nov 21 02:10:16 2026" summary="Nmap done at Sat Nov 21 02:10:16 2026; 1 IP address (1 host up) scanned in 6.69 seconds" elapsed="6.69" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE nmaprun>
 <?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
-<!-- Nmap 7.993 scan initiated Sat Nov 21 01:23:16 2026 as: nmap -sV -Pn -&#45;version-light -p 1-10000 -oX /tmp/tmp.0FpaqxZCGg/nmap_host14.xml lab-host-14 -->
-<nmaprun scanner="nmap" args="nmap -sV -Pn -&#45;version-light -p 1-10000 -oX /tmp/tmp.0FpaqxZCGg/nmap_host14.xml lab-host-14" start="1795242196" startstr="Sat Nov 21 01:23:16 2026" version="7.993" xmloutputversion="1.05">
+<!-- Nmap 7.993 scan initiated Sat Nov 21 02:09:34 2026 as: nmap -sV -Pn -p 1-10000 -oX /tmp/tmp.QNxvJXbWPq/nmap_host14.xml lab-host-14 -->
+<nmaprun scanner="nmap" args="nmap -sV -Pn -p 1-10000 -oX /tmp/tmp.QNxvJXbWPq/nmap_host14.xml lab-host-14" start="1795244974" startstr="Sat Nov 21 02:09:34 2026" version="7.993" xmloutputversion="1.05">
 <scaninfo type="connect" protocol="tcp" numservices="10000" services="1-10000"/>
 <verbose level="0"/>
 <debugging level="0"/>
-<host starttime="1795242197" endtime="1795242203"><status state="up" reason="user-set" reason_ttl="0"/>
+<host starttime="1795244974" endtime="1795244980"><status state="up" reason="user-set" reason_ttl="0"/>
 <address addr="lab-host-14" addrtype="ipv4"/>
 <hostnames>
 </hostnames>
@@ -15,8 +15,8 @@
 </extraports>
 <port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="http" product="Apache httpd" version="2.4.25" extrainfo="(Debian)" method="probed" conf="10"><cpe>cpe:/a:apache:http_server:2.4.25</cpe></service></port>
 </ports>
-<times srtt="59" rttvar="58" to="100000"/>
+<times srtt="52" rttvar="53" to="100000"/>
 </host>
-<runstats><finished time="1795242203" timestr="Sat Nov 21 01:23:23 2026" summary="Nmap done at Sat Nov 21 01:23:23 2026; 1 IP address (1 host up) scanned in 7.02 seconds" elapsed="7.02" exit="success"/><hosts up="1" down="0" total="1"/>
+<runstats><finished time="1795244980" timestr="Sat Nov 21 02:09:40 2026" summary="Nmap done at Sat Nov 21 02:09:40 2026; 1 IP address (1 host up) scanned in 6.68 seconds" elapsed="6.68" exit="success"/><hosts up="1" down="0" total="1"/>
 </runstats>
 </nmaprun>
