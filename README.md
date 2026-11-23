@@ -280,6 +280,14 @@ produced by a script in this repository and read from its output file; tests
 and the reasoning traces and can explain them. The proposal, the use case, the
 selection of tools and the evaluation design are the team's.
 
+Demo videos: the narration was recorded by the team and the Telegram footage was
+recorded by the team on a phone. The rest of the screen footage was produced by
+the AI assistant with automation over the real, running system: the n8n editor
+and GitHub pages recorded with Playwright, terminal sessions recorded with vhs
+while executing the real commands against the lab, plus slides and report pages
+as stills. Nothing shown was mocked: every command, execution and alert in the
+videos ran for real.
+
 ## License
 
 Academic project. Lab images are third-party, intentionally vulnerable software:
